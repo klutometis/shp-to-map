@@ -2,6 +2,8 @@ package org.geotools.tutorial;
 
 import java.io.File;
 import java.util.Random;
+import java.util.List;
+import java.util.LinkedList;
 
 import org.geotools.data.FileDataStore;
 import org.geotools.data.FileDataStoreFinder;
@@ -20,8 +22,9 @@ import org.opengis.feature.simple.SimpleFeature;
 import com.vividsolutions.jts.geom.MultiPolygon;
 import com.vividsolutions.jts.geom.GeometryFactory;
 import com.vividsolutions.jts.geom.Point;
-import com.vividsolutions.jts.geom.impl.CoordinateArraySequence;
 import com.vividsolutions.jts.geom.Coordinate;
+import com.vividsolutions.jts.geom.Envelope;
+import com.vividsolutions.jts.geom.impl.CoordinateArraySequence;
 
 /**
  * Prompts the user for a shapefile and displays the contents on the screen in a map frame.
@@ -29,13 +32,43 @@ import com.vividsolutions.jts.geom.Coordinate;
  * This is the GeoTools Quickstart application used in documentationa and tutorials. *
  */
 public class Quickstart {
-    public Point randomPoint() {
+    static Random RANDOM = new Random();
+    static int POINTS = 42;
+
+    public static Point randomPoint(double X,
+                                    double Y,
+                                    double width,
+                                    double height) {
         return new Point(new CoordinateArraySequence(new Coordinate[] {
-                    new Coordinate(Random.nextDouble(),
-                                   Random.nextDouble(),
-                                   Double.NaN);
-                },
-                new GeometryFactory()));
+                    new Coordinate(RANDOM.nextDouble() * width + X,
+                                   RANDOM.nextDouble() * height + Y,
+                                   // Coordinate.NULL_ORDINATE doesn't
+                                   // work; though it seems like it
+                                   // should.
+                                   Double.NaN)
+                }),
+                new GeometryFactory());
+    }
+
+    public static List<Point> randomPoints(final int n,
+                                           final double X,
+                                           final double Y,
+                                           final double width,
+                                           final double height) {
+        return new LinkedList<Point>() {
+            {
+                for (int i = 0; i < n; i++) {
+                    add(randomPoint(X, Y, width, height));
+                };
+            }
+        };
+    }
+
+    public static List<Point> randomPoints(double X,
+                                           double Y,
+                                           double width,
+                                           double height) {
+        return randomPoints(POINTS, X, Y, width, height);
     }
 
     /**
@@ -67,13 +100,30 @@ public class Quickstart {
                 System.out.println(feature.getDescriptor().getType());
                 MultiPolygon mp = (MultiPolygon) feature.getDefaultGeometry();
                 System.out.println(mp.getGeometryType());
+                System.out.println(mp.getEnvelopeInternal());
+                Envelope boundingBox = mp.getEnvelopeInternal();
+                double X = boundingBox.getMinX();
+                double Y = boundingBox.getMinY();
+                double width = boundingBox.getWidth();
+                double height = boundingBox.getHeight();
+                // System.out.println(mp.getEnvelopeInternal().getLowerCorner());
+                // System.out.println(mp.getEnvelopeInternal().getUpperCorner());
                 // Coordinate.NULL_ORDINATE doesn't work; though it
                 // seems like it should.
-                Point point = new Point(new CoordinateArraySequence(new Coordinate[] {
-                            new Coordinate(0, 0, Double.NaN)
-                        }),
-                    new GeometryFactory());
-                System.out.println(mp.covers(point));
+                // Point point = new Point(new CoordinateArraySequence(new Coordinate[] {
+                //             new Coordinate(0, 0, Double.NaN)
+                //         }),
+                //     new GeometryFactory());
+                // System.out.println(mp.covers(randomPoint(X, Y, width, height)));
+                List<Point> randomPoints = randomPoints(X, Y, width, height);
+                for (Point point: randomPoints) {
+                    System.out.println(point.toString());
+                    System.out.println("covers: " + mp.covers(point));
+                    System.out.println("within: " + point.within(mp));
+                    System.out.println("disjoint: " + mp.disjoint(point));
+                    System.out.println("contains: " + mp.contains(point));
+                    System.out.println("overlaps: " + mp.overlaps(point));
+                }
             }
         } finally {
             features.close(iterator);
