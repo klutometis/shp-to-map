@@ -3,9 +3,11 @@ package org.geotools.tutorial;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileReader;
+import java.io.IOException;
 import java.util.Random;
 import java.util.List;
 import java.util.LinkedList;
+import java.util.concurrent.Callable;
 
 import org.geotools.data.FileDataStore;
 import org.geotools.data.FileDataStoreFinder;
@@ -31,6 +33,7 @@ import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.geom.impl.CoordinateArraySequence;
 import com.vividsolutions.jts.io.WKTReader;
 import com.vividsolutions.jts.io.WKTFileReader;
+import com.vividsolutions.jts.io.ParseException;
 
 /**
  * Prompts the user for a shapefile and displays the contents on the screen in a map frame.
@@ -39,7 +42,7 @@ import com.vividsolutions.jts.io.WKTFileReader;
  */
 public class Quickstart {
     static Random RANDOM = new Random();
-    static int POINTS = 42;
+    static int POINTS = 1000;
 
     public static Point randomPoint(double X,
                                     double Y,
@@ -67,11 +70,46 @@ public class Quickstart {
         };
     }
 
-    public static List<Point> randomPoints(double X,
-                                           double Y,
-                                           double width,
-                                           double height) {
-        return randomPoints(POINTS, X, Y, width, height);
+    public static List<Point> randomPoints(int n, Envelope envelope) {
+        return randomPoints(n,
+                            envelope.getMinX(),
+                            envelope.getMinY(),
+                            envelope.getWidth(),
+                            envelope.getHeight());
+    }
+
+
+    public static List<Point> randomPoints(int n, List<Geometry> geometries) {
+        return randomPoints(n,
+                            new GeometryFactory()
+                            .buildGeometry(geometries)
+                            .getEnvelopeInternal());
+    }
+
+    public static List<Geometry> readGeometries(String file)
+        throws IOException, ParseException {
+        return new WKTFileReader(file, new WKTReader()).read();
+    }
+
+    public static boolean covers(List<Geometry> geometries, Geometry point) {
+        for (Geometry geometry: geometries) {
+            if (geometry.getEnvelope().covers(point) &&
+                geometry.covers(point)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Can't return both the time and the object: a map, maybe? Ah,
+    // how we pine for the fjords of multiple return values.
+    public static <T> void time(Callable<T> callable) throws Exception {
+        long start = System.currentTimeMillis();
+        T value = callable.call();
+        long end = System.currentTimeMillis();
+        System.out.println(String.format("Time elapsed: %s; result: %s",
+                                         end - start,
+                                         value));
     }
 
     /**
@@ -79,112 +117,17 @@ public class Quickstart {
      * contents on the screen in a map frame
      */
     public static void main(String[] args) throws Exception {
-        // display a data store file chooser dialog for shapefiles
-        // File file = JFileDataStoreChooser.showOpenFile("shp", null);
-        // if (file == null) {
-        //     return;
-        // }
-        // new WKBReader().read(new InputStreamInStream(new FileInputStream("us_geometry.txt")));
-        // new WKTReader().read(new InputStreamInStream(new FileInputStream("us_geometry.txt")));
-        // System.out.println(new WKTFileReader("us_geometry.txt", new WKTReader()).read());
-        // System.out.println(new WKTReader().read(new FileReader("us_geometry.txt")).getClass());
-        List<Geometry> geometries = new WKTFileReader("us_geometry.txt", new WKTReader()).read();
-        Geometry multiGeometry = new GeometryFactory().buildGeometry(geometries);
-        Envelope boundingBox = multiGeometry.getEnvelopeInternal();
-        double X = boundingBox.getMinX();
-        double Y = boundingBox.getMinY();
-        double width = boundingBox.getWidth();
-        double height = boundingBox.getHeight();
-        Point point = randomPoint(X, Y, width, height);
-        System.out.println(String.format("%s %s %s %s %s %s %s %s %s %s %s %s",
-                                         multiGeometry.covers(multiGeometry),
-                                         multiGeometry.covers(point),
-                                         multiGeometry.within(point),
-                                         multiGeometry.disjoint(point),
-                                         multiGeometry.intersects(point),
-                                         multiGeometry.overlaps(point),
-                                         multiGeometry.contains(point),
-                                         point,
-                                         X,
-                                         Y,
-                                         width,
-                                         height));
-        System.exit(0);
-        // GeometryCollection collection =
-        //     new GeometryCollection(geometries.toArray(new Geometry[0]),
-        //                            new GeometryFactory());
-        // Envelope boundingBox = collection.getEnvelopeInternal();
-        // double X = boundingBox.getMinX();
-        // double Y = boundingBox.getMinY();
-        // double width = boundingBox.getWidth();
-        // double height = boundingBox.getHeight();
-        // System.out.println(collection.intersects(randomPoint(X, Y, width, height)));
-        // Geometry union = new Geometry(new GeometryFactory());
-        for (Geometry geometry: geometries) {
-            System.out.println(geometry.contains(point));
-            // union = union.union(geometry);
-        }        
-        // System.out.println(union.contains(point));
-        System.exit(0);
-
-        File file = new File("USA_adm0.shp");
-        // File file = new File("us_geometry.txt");
-
-        FileDataStore store = FileDataStoreFinder.getDataStore(file);
-        SimpleFeatureSource featureSource = store.getFeatureSource();
-        FeatureCollection features = featureSource.getFeatures();
-        FeatureIterator iterator = features.features();
-
-        // This ugly thing mandated by
-        // e.g. <http://docs.geotools.org/latest/javadocs/org/geotools/data/simple/SimpleFeatureCollection.html>;
-        // i.e. generics-style iteration is out.
-        // try {
-        //     while (iterator.hasNext()) {
-        //         SimpleFeature feature = (SimpleFeature) iterator.next();
-        //         System.out.println(feature.getAttributeCount());
-        //         System.out.println(feature.getDescriptor());
-        //         System.out.println(feature.getDescriptor().getLocalName());
-        //         System.out.println(feature.getDescriptor().getType());
-        //         MultiPolygon mp = (MultiPolygon) feature.getDefaultGeometry();
-        //         System.out.println(mp.getGeometryType());
-        //         System.out.println(mp.getEnvelopeInternal());
-        //         Envelope boundingBox = mp.getEnvelopeInternal();
-        //         double X = boundingBox.getMinX();
-        //         double Y = boundingBox.getMinY();
-        //         double width = boundingBox.getWidth();
-        //         double height = boundingBox.getHeight();
-        //         // System.out.println(mp.getEnvelopeInternal().getLowerCorner());
-        //         // System.out.println(mp.getEnvelopeInternal().getUpperCorner());
-        //         // Coordinate.NULL_ORDINATE doesn't work; though it
-        //         // seems like it should.
-        //         // Point point = new Point(new CoordinateArraySequence(new Coordinate[] {
-        //         //             new Coordinate(0, 0, Double.NaN)
-        //         //         }),
-        //         //     new GeometryFactory());
-        //         // System.out.println(mp.covers(randomPoint(X, Y, width, height)));
-        //         List<Point> randomPoints = randomPoints(X, Y, width, height);
-        //         for (Point point: randomPoints) {
-        //             System.out.println(point.toString());
-        //             System.out.println("covers: " + mp.covers(point));
-        //             System.out.println("within: " + point.within(mp));
-        //             System.out.println("disjoint: " + mp.disjoint(point));
-        //             System.out.println("contains: " + mp.contains(point));
-        //             System.out.println("overlaps: " + mp.overlaps(point));
-        //         }
-        //     }
-        // } finally {
-        //     features.close(iterator);
-        // }
-
-        // Create a map content and add our shapefile to it
-        // MapContent map = new MapContent();
-        // map.setTitle("Quickstart");
-        
-        // Style style = SLD.createSimpleStyle(featureSource.getSchema());
-        // Layer layer = new FeatureLayer(featureSource, style);
-        // map.addLayer(layer);
-
-        // Now display the map
-        // JMapFrame.showMap(map);
+        final List<Geometry> geometries = readGeometries("us_geometry.txt");
+        final List<Point> points = randomPoints(POINTS, geometries);
+        time(new Callable<Integer>() {
+                public Integer call() {
+                    int i = 0;
+                    for (Point point: points) {
+                        if (covers(geometries, point))
+                            i++;
+                    }
+                    return i;
+                }
+            });
     }
 }
