@@ -34,6 +34,7 @@ import com.vividsolutions.jts.geom.impl.CoordinateArraySequence;
 import com.vividsolutions.jts.io.WKTReader;
 import com.vividsolutions.jts.io.WKTFileReader;
 import com.vividsolutions.jts.io.ParseException;
+import com.google.common.base.Stopwatch;
 
 public class Quickstart {
     static Random RANDOM = new Random();
@@ -99,10 +100,9 @@ public class Quickstart {
     // Can't return both the time and the object: a map, maybe? Ah,
     // how we pine for the fjords of multiple return values.
     public static <T> T time(Callable<T> callable) throws Exception {
-        long start = System.currentTimeMillis();
+        Stopwatch watch = new Stopwatch().start();
         T value = callable.call();
-        long end = System.currentTimeMillis();
-        System.out.println(String.format("Time elapsed: %s", end - start));
+        System.err.println(String.format("Time elapsed: %s", watch));
         return value;
     }
 

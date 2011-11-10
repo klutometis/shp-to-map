@@ -1,0 +1,118 @@
+# -*- org -*-
+* CANCELED map, reduce, filter, etc. in Java
+  CLOSED: [2011-11-10 Thu 08:46]
+  - CLOSING NOTE [2011-11-10 Thu 08:47] \\
+    See [[http://code.google.com/p/guava-libraries/][Guava]].
+  #+BEGIN_SRC java :tangle Map.java
+    import java.util.List;
+    import java.util.LinkedList;
+    import java.util.concurrent.Callable;
+    import java.lang.reflect.Method;
+    
+    public class Map {
+        // N-ary wrapper around Callable?
+        // http://stackoverflow.com/questions/1659986/java-parameterized-runnable
+        public <T> List<T> map(final Callable<T> map, final List<T> list) throws Exception {
+            return new LinkedList<T>() {
+                {
+                    for (T element: list) {
+                        add(map.call());
+                    }
+                }
+            };
+        }
+    
+        public static void main(String[] argv) {
+        }
+    }
+    
+  #+END_SRC
+* Guava
+** http://guava-libraries.googlecode.com/files/guava-concurrent-slides.pdf
+   - Immutable*
+   - MapMaker
+** http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/allclasses-noframe.html
+   - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/collect/AbstractIterator.html][Approaches foof-loop?]]
+   - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/collect/Collections2.html][Filter and transform]]
+   - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/collect/ComparisonChain.html][Comparison composition]]
+   - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/collect/Constraints.html][Where notNull comes from?]]
+   - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/collect/EnumHashBiMap.html][EnumMaps]]
+   - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/collect/ForwardingMap.html][ForwardingMap]]
+   - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/collect/ForwardingObject.html][ForwardingObject]]
+   - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/collect/ImmutableClassToInstanceMap.Builder.html][ImmutableClassToInstanceMap]]; this stuff is pretty cool: remember
+     doing it at some point.
+   - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/collect/ImmutableCollection.html][ImmutableCollection]]
+   - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/collect/ImmutableList.html][ImmutableList]]: approaching functionalism? Intended for enums,
+     apparently:
+ 
+     #+BEGIN_SRC java
+       public static final ImmutableList<Color> GOOGLE_COLORS
+           = new ImmutableList.Builder<Color>()
+           .addAll(WEBSAFE_COLORS)
+           .add(new Color(0, 191, 255))
+           .build();
+     #+END_SRC
+   - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/collect/ImmutableList.Builder.html][ImmutableList.Builder]]
+   - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/collect/Iterables.html][Iterables]]: lazy;
+   - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/collect/Lists.html][Lists]]: approaching SRFI-1? =partition=, =reverse=, =transform=;
+     =asList= as =cons=?
+   - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/collect/MapMaker.html][MapMaker]]: crown jewel:
+     
+     #+BEGIN_SRC java
+       ConcurrentMap<Key, Graph> graphs = new MapMaker()
+           .concurrencyLevel(4)
+           .weakKeys()
+           .maximumSize(10000)
+           .expireAfterWrite(10, TimeUnit.MINUTES)
+           .makeComputingMap(
+                             new Function<Key, Graph>() {
+                                 public Graph apply(Key key) {
+                                     return createExpensiveGraph(key);
+                                 }
+                             });
+     #+END_SRC
+     
+     =makeComputingMap=: cf. [[http://srfi.schemers.org/srfi-1/srfi-1.html#list-tabulate][list-tabulate]]?
+   - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/collect/Maps.html][Maps]]: =difference=, =filter{Entries,Keys,Values}= (approaching
+     Clojure's [[http://clojuredocs.org/clojure_contrib/clojure.contrib.generic.functor/fmap][fmap]]?); =transformEntries=
+   - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/collect/MinMaxPriorityQueue.html][MinMaxPriorityQueue]]: cool
+   - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/collect/ObjectArrays.html][ObjectArrays]]: finally, =concat=
+   - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/collect/Range.html][Range]]
+   - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/collect/Ranges.html][Ranges]] with comparators, predicates, filters: e.g. =closed=,
+     =upTo=
+   - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/collect/Sets.html][Sets]]: cartesianProduct
+   - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/collect/Tables.html][Tables]]: transformations on which
+   - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/eventbus/AllowConcurrentEvents.html][AllowConcurrentEvents]]: an annotation type; missed these.
+   - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/base/CaseFormat.html][CaseFormat]]: cool, translate from camel to Scheme-like.
+   - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/base/CharMatcher.html][CharMatcher]] with chaining operations: =inRange=, =replaceFrom=, etc.
+   - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/base/Defaults.html][Defaults]]: =nil= for various types
+   - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/base/Function.html][Function]]: sweet
+   - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/base/Functions.html][Functions]]: composition, identity, etc.
+   - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/base/Joiner.html][Joiner]]
+   - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/base/Objects.html][Objects]]: =toStringHelper=, =firstNonNull=
+   - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/base/Optional.html][Optional]] distinct from =null=
+   - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/base/Preconditions.html][Preconditions]]:
+     #+BEGIN_SRC java
+       checkArgument(count > 0, "must be positive: %s", count);
+     #+END_SRC
+   - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/base/Predicate.html][Predicate]], which is applicable
+   - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/base/Predicates.html][Predicates]]: for combining which with =or=, =and=, etc.
+   - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/base/Stopwatch.html][Stopwatch]]: instead of the dumbass end - start calculations
+     #+BEGIN_SRC java
+       Stopwatch stopwatch = new Stopwatch().start();
+       doSomething();
+       stopwatch.stop(); // optional
+       
+       long millis = stopwatch.elapsedMillis();
+       
+       log.info("that took: " + stopwatch); // formatted string like "12.3 ms"
+     #+END_SRC
+   - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/base/Strings.html][Strings]]: the type of stuff I had to do for Roxygen.
+   - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/base/Suppliers.html][Suppliers]] (abstraction on factory): can be combined, memoized, etc.
+   - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/base/Throwables.html][Throwables]]: =getCausalChain= (cute!); =getRootCause=
+   - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/annotations/Beta.html][@Beta]]
+   - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/primitives/Booleans.html][Booleans]], etc. work on primitives
+   - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/io/Closeables.html][Closeables]]: approach =with-input-from-file=, probably?
+   - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/io/Files.html][Files]]: wow, map files, etc.
+   - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/io/LineProcessor.html][LineProcessor]]
+   - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/io/Resources.html][Resources]] for wrapping file-input, etc.
