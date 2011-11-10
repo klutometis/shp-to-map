@@ -35,6 +35,8 @@ import com.vividsolutions.jts.io.WKTReader;
 import com.vividsolutions.jts.io.WKTFileReader;
 import com.vividsolutions.jts.io.ParseException;
 import com.google.common.base.Stopwatch;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.AbstractIterator;
 
 public class Quickstart {
     static Random RANDOM = new Random();
@@ -57,13 +59,26 @@ public class Quickstart {
                                            final double Y,
                                            final double width,
                                            final double height) {
-        return new LinkedList<Point>() {
-            {
-                for (int i = 0; i < n; i++) {
-                    add(randomPoint(X, Y, width, height));
-                };
-            }
-        };
+        return new ImmutableList.Builder<Point>()
+            .addAll(new AbstractIterator<Point>() {
+                    int i = n;
+                    protected Point computeNext() {
+                        if (i == 0)
+                            return endOfData();
+                        else {
+                            i--;
+                            return randomPoint(X, Y, width, height);
+                        }
+                    }
+                })
+            .build();
+        // return new LinkedList<Point>() {
+        //     {
+        //         for (int i = 0; i < n; i++) {
+        //             add(randomPoint(X, Y, width, height));
+        //         };
+        //     }
+        // };
     }
 
     public static List<Point> randomPoints(int n, Envelope envelope) {
