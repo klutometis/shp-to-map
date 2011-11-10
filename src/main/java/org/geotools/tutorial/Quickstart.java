@@ -35,11 +35,6 @@ import com.vividsolutions.jts.io.WKTReader;
 import com.vividsolutions.jts.io.WKTFileReader;
 import com.vividsolutions.jts.io.ParseException;
 
-/**
- * Prompts the user for a shapefile and displays the contents on the screen in a map frame.
- * <p>
- * This is the GeoTools Quickstart application used in documentationa and tutorials. *
- */
 public class Quickstart {
     static Random RANDOM = new Random();
     static int POINTS = 1000;
@@ -103,19 +98,14 @@ public class Quickstart {
 
     // Can't return both the time and the object: a map, maybe? Ah,
     // how we pine for the fjords of multiple return values.
-    public static <T> void time(Callable<T> callable) throws Exception {
+    public static <T> T time(Callable<T> callable) throws Exception {
         long start = System.currentTimeMillis();
         T value = callable.call();
         long end = System.currentTimeMillis();
-        System.out.println(String.format("Time elapsed: %s; result: %s",
-                                         end - start,
-                                         value));
+        System.out.println(String.format("Time elapsed: %s", end - start));
+        return value;
     }
 
-    /**
-     * GeoTools Quickstart demo application. Prompts the user for a shapefile and displays its
-     * contents on the screen in a map frame
-     */
     public static void main(String[] args) throws Exception {
         final List<Geometry> geometries = readGeometries("us_geometry.txt");
         final List<Point> points = randomPoints(POINTS, geometries);
