@@ -616,6 +616,9 @@
     ZM
     ZW
   #+END_SRC
+
+  Why do I need a list of countries? Just populate as you see it,
+  uppercased.
 * CANCELED map, reduce, filter, etc. in Java
   CLOSED: [2011-11-10 Thu 08:46]
   - CLOSING NOTE [2011-11-10 Thu 08:47] \\
