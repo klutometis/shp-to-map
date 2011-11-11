@@ -1,4 +1,621 @@
 # -*- org -*-
+* TODO Map file for each country
+  #+BEGIN_SRC scheme :tangle places-by-country.scm :shebang #!/usr/bin/env chicken-scheme
+    (use srfi-1 debug)
+    
+    (debug
+     (with-input-from-file
+         "countries.txt"
+       (lambda ()
+         (unfold
+          eof-object?
+          ->string
+          (lambda x (read))
+          (read)))))
+    
+  #+END_SRC
+
+  #+BEGIN_EXAMPLE
+    gazetteer_world=# select distinct admin_level from place;
+     admin_level 
+    -------------
+               8
+              12
+             100
+               2
+              10
+               3
+              23
+              11
+           60177
+               4
+               5
+               9
+               7
+               0
+           51000
+               6
+    (16 rows)    
+  #+END_EXAMPLE
+
+  #+BEGIN_EXAMPLE
+    gazetteer_world=# select distinct class from place;
+      class   
+    ----------
+     historic
+     waterway
+     highway
+     landuse
+     boundary
+     building
+     natural
+     amenity
+     aeroway
+     bridge
+     railway
+     tunnel
+     shop
+     place
+     tourism
+     leisure
+    (16 rows)
+  #+END_EXAMPLE
+
+  #+BEGIN_EXAMPLE
+    gazetteer_world=# select count(1) from placex;
+      count   
+    ----------
+     85345299
+    (1 row)
+    
+    gazetteer_world=# select count(1) from place;
+      count   
+    ----------
+     86979851
+    (1 row)
+  #+END_EXAMPLE
+
+  #+BEGIN_EXAMPLE
+    gazetteer_world=# select distinct class, type, admin_level from place where name[1].value = 'Los Angeles';
+      class  |       type       | admin_level 
+    ---------+------------------+-------------
+     place   | city             |         100
+     shop    | shoes            |         100
+     place   | postcode         |         100
+     highway | unclassified     |         100
+     place   | locality         |         100
+     place   | county           |         100
+     place   | suburb           |         100
+     place   | hamlet           |         100
+     amenity | restaurant       |         100
+     amenity | place_of_worship |         100
+     amenity | school           |         100
+     place   | city             |           8
+     amenity | pharmacy         |         100
+     highway | residential      |         100
+     place   | village          |         100
+    (15 rows)    
+  #+END_EXAMPLE
+
+  Hmm; no postcodes:
+
+  #+BEGIN_EXAMPLE
+    gazetteer_world=# select distinct class, type, admin_level from placex where name[1].value = 'Los Angeles';
+      class  |       type       | admin_level 
+    ---------+------------------+-------------
+     amenity | restaurant       |         100
+     amenity | place_of_worship |         100
+     place   | city             |         100
+     shop    | shoes            |         100
+     amenity | school           |         100
+     highway | unclassified     |         100
+     place   | locality         |         100
+     place   | city             |           8
+     place   | county           |         100
+     place   | suburb           |         100
+     amenity | pharmacy         |         100
+     place   | hamlet           |         100
+     highway | residential      |         100
+     place   | village          |         100
+    (14 rows)
+  #+END_EXAMPLE
+
+  See what =class= and =type= look like for ~admin_level <= 8~.
+
+  #+BEGIN_EXAMPLE
+    gazetteer_world=# select distinct admin_level, class, type from placex where admin_level <= 8 order by admin_level, class, type asc;
+     admin_level |  class   |          type          
+    -------------+----------+------------------------
+               0 | amenity  | school
+               0 | boundary | adminitrative
+               0 | bridge   | yes
+               0 | building | yes
+               0 | highway  | residential
+               0 | highway  | secondary
+               0 | highway  | tertiary
+               0 | highway  | unclassified
+               0 | landuse  | recreation_ground
+               0 | landuse  | reserve
+               0 | landuse  | residential
+               0 | leisure  | nature_reserve
+               0 | leisure  | park
+               0 | place    | hamlet
+               0 | place    | house
+               0 | place    | region
+               0 | place    | state
+               0 | place    | village
+               0 | shop     | supermarket
+               0 | waterway | river
+               2 | amenity  | border_control
+               2 | boundary | adminitrative
+               2 | highway  | road
+               2 | highway  | tertiary
+               2 | landuse  | island
+               2 | leisure  | nature_reserve
+               2 | leisure  | slipway
+               2 | natural  | coastline
+               2 | place    | administrative
+               2 | place    | city
+               2 | place    | island
+               2 | place    | postcode
+               2 | place    | town
+               2 | waterway | river
+               2 | waterway | stream
+               3 | boundary | adminitrative
+               3 | highway  | primary
+               3 | landuse  | reserve
+               3 | natural  | coastline
+               3 | place    | city
+               3 | place    | postcode
+               3 | place    | region
+               3 | waterway | river
+               3 | waterway | stream
+               4 | amenity  | fuel
+               4 | amenity  | parking
+               4 | boundary | adminitrative
+               4 | highway  | motorway
+               4 | highway  | path
+               4 | highway  | primary
+               4 | highway  | residential
+               4 | highway  | secondary
+               4 | highway  | service
+               4 | highway  | tertiary
+               4 | highway  | track
+               4 | highway  | trunk
+               4 | highway  | unclassified
+               4 | historic | archaeological_site
+               4 | historic | yes
+               4 | landuse  | farm
+               4 | landuse  | landfill
+               4 | landuse  | reserve
+               4 | leisure  | beach
+               4 | leisure  | nature_reserve
+               4 | leisure  | non_public-park
+               4 | leisure  | park
+               4 | leisure  | park_
+               4 | natural  | beach
+               4 | natural  | coastline
+               4 | natural  | wood
+               4 | place    | borough
+               4 | place    | city
+               4 | place    | county
+               4 | place    | island
+               4 | place    | islet
+               4 | place    | postcode
+               4 | place    | region
+               4 | place    | Reserve
+               4 | place    | Rserve
+               4 | place    | state
+               4 | place    | town
+               4 | place    | village
+               4 | tourism  | attraction
+               4 | tourism  | guest_house
+               4 | tourism  | hotel
+               4 | tourism  | museum
+               4 | tourism  | picnic_site
+               4 | waterway | canal
+               4 | waterway | coast
+               4 | waterway | river
+               4 | waterway | stream
+               5 | boundary | adminitrative
+               5 | bridge   | yes
+               5 | highway  | primary
+               5 | highway  | secondary
+               5 | highway  | tertiary
+               5 | highway  | trunk
+               5 | landuse  | commercial
+               5 | landuse  | residential
+               5 | place    | city
+               5 | place    | state
+               5 | place    | town
+               5 | railway  | tram
+               5 | waterway | river
+               5 | waterway | stream
+               6 | boundary | adminitrative
+               6 | bridge   | yes
+               6 | building | no
+               6 | highway  | footway
+               6 | highway  | path
+               6 | highway  | pedestrian
+               6 | highway  | primary
+               6 | highway  | proposed
+               6 | highway  | residential
+               6 | highway  | road
+               6 | highway  | secondary
+               6 | highway  | service
+               6 | highway  | tertiary
+               6 | highway  | track
+               6 | highway  | trunk
+               6 | highway  | unclassified
+               6 | historic | boundary
+               6 | historic | heritage
+               6 | landuse  | administrative
+               6 | landuse  | forest
+               6 | landuse  | reservoir
+               6 | landuse  | residential
+               6 | landuse  | retail
+               6 | leisure  | golf_course
+               6 | natural  | coastline
+               6 | natural  | land
+               6 | natural  | water
+               6 | place    | administrative
+               6 | place    | city
+               6 | place    | county
+               6 | place    | hamlet
+               6 | place    | island
+               6 | place    | islet
+               6 | place    | locality
+               6 | place    | postcode
+               6 | place    | region
+               6 | place    | suburb
+               6 | place    | town
+               6 | place    | village
+               6 | railway  | abandoned
+               6 | railway  | tram
+               6 | tunnel   | yes
+               6 | waterway | canal
+               6 | waterway | drain
+               6 | waterway | river
+               6 | waterway | stream
+               7 | boundary | adminitrative
+               7 | bridge   | yes
+               7 | highway  | primary
+               7 | highway  | residential
+               7 | highway  | secondary
+               7 | highway  | tertiary
+               7 | highway  | unclassified
+               7 | historic | boundary_stone
+               7 | landuse  | residential
+               7 | natural  | coastline
+               7 | place    | city
+               7 | place    | postcode
+               7 | place    | town
+               7 | place    | village
+               7 | railway  | abandoned
+               7 | tourism  | hotel
+               7 | tunnel   | yes
+               7 | waterway | canal
+               7 | waterway | drain
+               7 | waterway | river
+               7 | waterway | stream
+               8 | aeroway  | aerodrome
+               8 | boundary | adminitrative
+               8 | bridge   | yes
+               8 | building | yes
+               8 | highway  | cycleway
+               8 | highway  | footway
+               8 | highway  | motorway
+               8 | highway  | motorway_link
+               8 | highway  | path
+               8 | highway  | pedestrian
+               8 | highway  | primary
+               8 | highway  | primary_link
+               8 | highway  | residential
+               8 | highway  | road
+               8 | highway  | secondary
+               8 | highway  | service
+               8 | highway  | tertiary
+               8 | highway  | track
+               8 | highway  | trunk
+               8 | highway  | trunk_link
+               8 | highway  | unclassified
+               8 | historic | boundary_stone
+               8 | landuse  | administrative
+               8 | landuse  | allotments
+               8 | landuse  | cemetery
+               8 | landuse  | farm
+               8 | landuse  | forest
+               8 | landuse  | industrial
+               8 | landuse  | military
+               8 | landuse  | r
+               8 | landuse  | reservoir
+               8 | landuse  | residental
+               8 | landuse  | residential
+               8 | leisure  | nature_reserve
+               8 | leisure  | park
+               8 | natural  | coastline
+               8 | natural  | fell
+               8 | natural  | ridge
+               8 | natural  | water
+               8 | place    | borough
+               8 | place    | city
+               8 | place    | city and borough
+               8 | place    | Freguesia de Meirinhas
+               8 | place    | hamlet
+               8 | place    | house
+               8 | place    | houses
+               8 | place    | island
+               8 | place    | locality
+               8 | place    | municipality
+               8 | place    | postcode
+               8 | place    | suburb
+               8 | place    | town
+               8 | place    | vilage
+               8 | place    | village
+               8 | railway  | abandoned
+               8 | tourism  | camp_site
+               8 | tunnel   | no
+               8 | tunnel   | yes
+               8 | waterway | canal
+               8 | waterway | ditch
+               8 | waterway | drain
+               8 | waterway | river
+               8 | waterway | stream
+    (235 rows)    
+  #+END_EXAMPLE
+
+  #+BEGIN_SRC text :tangle countries.txt
+    16
+    43
+    74
+    AD
+    AE
+    AF
+    AG
+    AI
+    AL
+    AM
+    AN
+    AO
+    AQ
+    AR
+    AS
+    AT
+    AU
+    AW
+    AX
+    AY
+    AZ
+    BA
+    BB
+    BD
+    BE
+    BF
+    BG
+    BH
+    BI
+    BJ
+    BL
+    BM
+    BN
+    BO
+    BR
+    BS
+    BT
+    BW
+    BY
+    BZ
+    CA
+    CD
+    CF
+    CG
+    CH
+    CI
+    CK
+    CL
+    CM
+    CN
+    CO
+    CQ
+    CR
+    CU
+    CV
+    CY
+    CZ
+    DE
+    DJ
+    DK
+    DM
+    DO
+    DZ
+    EC
+    EE
+    EG
+    EH
+    ER
+    ES
+    ET
+    FI
+    FJ
+    FK
+    FM
+    FO
+    FR
+    GA
+    GB
+    GD
+    GE
+    GF
+    GG
+    GH
+    GI
+    GL
+    GM
+    GN
+    GO
+    GP
+    GQ
+    GR
+    GS
+    GT
+    GU
+    GW
+    GY
+    HN
+    HR
+    HT
+    HU
+    ID
+    IE
+    IL
+    IM
+    IN
+    IO
+    IQ
+    IR
+    IS
+    IT
+    JE
+    JM
+    JO
+    JP
+    JQ
+    KE
+    KG
+    KH
+    KI
+    KM
+    KN
+    KP
+    KR
+    KW
+    KY
+    KZ
+    LA
+    LB
+    LC
+    LI
+    LK
+    LR
+    LS
+    LT
+    LU
+    LV
+    LY
+    MA
+    MC
+    MD
+    ME
+    MF
+    MG
+    MH
+    MK
+    ML
+    MM
+    MN
+    MQ
+    MR
+    MS
+    MT
+    MU
+    MV
+    MW
+    MX
+    MY
+    MZ
+    NA
+    NC
+    NE
+    NG
+    NI
+    NL
+    NO
+    NP
+    NR
+    NU
+    NZ
+    OM
+    PA
+    PE
+    PF
+    PG
+    PH
+    PK
+    PL
+    PM
+    PN
+    PR
+    PS
+    PT
+    PW
+    PY
+    QA
+    RE
+    RO
+    RQ
+    RS
+    RU
+    RW
+    SA
+    SB
+    SC
+    SD
+    SE
+    SG
+    SH
+    SI
+    SJ
+    SK
+    SL
+    SM
+    SN
+    SO
+    SR
+    ST
+    SV
+    SY
+    SZ
+    TC
+    TD
+    TF
+    TG
+    TH
+    TJ
+    TK
+    TL
+    TM
+    TN
+    TO
+    TR
+    TT
+    TV
+    TW
+    TZ
+    UA
+    UG
+    UK
+    US
+    UY
+    UZ
+    VA
+    VC
+    VE
+    VG
+    VI
+    VN
+    VQ
+    VU
+    WE
+    WF
+    WQ
+    WS
+    WZ
+    YE
+    YT
+    ZA
+    ZM
+    ZW
+  #+END_SRC
 * CANCELED map, reduce, filter, etc. in Java
   CLOSED: [2011-11-10 Thu 08:46]
   - CLOSING NOTE [2011-11-10 Thu 08:47] \\
@@ -116,3 +733,14 @@
    - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/io/Files.html][Files]]: wow, map files, etc.
    - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/io/LineProcessor.html][LineProcessor]]
    - [[http://docs.guava-libraries.googlecode.com/git-history/v10.0.1/javadoc/com/google/common/io/Resources.html][Resources]] for wrapping file-input, etc.
+
+* Notes
+** Fri Nov 11 08:59:56 PST 2011
+   - map file;
+   - two types of files: list file, map file; if list file: is point in
+     any of the polygons in list; if map file, is point in polygon
+   - productize it: here are your files
+   - vs. serialize pre-indexed object
+   - scarecrow map generator
+   - summaries? inputs?
+   - validator: inputs, summaries
