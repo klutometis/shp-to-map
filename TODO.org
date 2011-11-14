@@ -1,6 +1,6 @@
 # -*- org -*-
 * TODO Map file for each country
-  #+BEGIN_SRC scheme :tangle places-by-country.scm :shebang #!/usr/bin/env chicken-scheme
+  #+BEGIN_SRC scheme :tangle places-by-country-file.scm :shebang #!/usr/bin/env chicken-scheme
     (use srfi-1 debug)
     
     (debug
@@ -11,8 +11,7 @@
           eof-object?
           ->string
           (lambda x (read))
-          (read)))))
-    
+          (read)))))    
   #+END_SRC
 
   #+BEGIN_EXAMPLE
@@ -619,6 +618,71 @@
 
   Why do I need a list of countries? Just populate as you see it,
   uppercased.
+
+  #+BEGIN_SRC scheme :tangle places-by-country.scm :shebang #!/usr/bin/env chicken-scheme
+    (use debug postgresql srfi-69 matchable)
+    
+    (define call-with-postgresql-connection
+      (case-lambda
+       ((connection-spec procedure)
+        (call-with-postgresql-connection
+         connection-spec
+         (default-type-parsers)
+         procedure))
+       ((connection-spec type-parsers procedure)
+        (call-with-postgresql-connection
+         connection-spec
+         type-parsers
+         (default-type-unparsers)
+         procedure))
+       ((connection-spec type-parsers type-unparsers procedure)
+        (let ((connection #f))
+          (dynamic-wind
+              (lambda () (set! connection
+                               (connect connection-spec type-parsers type-unparsers)))
+              (lambda () (procedure connection))
+              (lambda () (disconnect connection)))))))
+    
+    (define (key-value-parser key-value)
+      (match ((make-composite-parser (list identity identity))
+              key-value)
+        ((key value) (cons key value))))
+    
+    (let ((country-code->class (make-hash-table)))
+      (call-with-postgresql-connection
+       '((host . "bm02")
+         (user . "postgres")
+         (password . "postgres")
+         (dbname . "gazetteer_world"))
+       (alist-cons "keyvalue"
+                   key-value-parser
+                   (default-type-parsers))
+       (lambda (connection)
+         (row-for-each*
+          (lambda (country-code class name geometry)
+            (debug name)
+            #;
+            (let* ((name (vector->list name))
+                   (name (alist-ref "name" name)))
+              (debug name geometry)))
+          (query connection
+                 "select country_code, class, get_name_by_language(name, '{\"name:en\"}'), substring(asBinary(geometry) from 1 for 10) from placex where class = 'place' and name is not null and admin_level < 100 limit 1000;")))))
+    
+  #+END_SRC
+
+  Take a look at reverse-geocoding in Nominatim (bm02): progressively
+  more precise. Establish whether or not adm_level is a
+  hierarchy. Check the tiger: country, state, city. People should be
+  able to create maps and throw them in.
+
+  Abritrary number of maps; point in city, country; CityCodes.map.
+
+  poi.[country].[class].map; class that initialize with filename; pass
+  in point.
+
+  WKB instead of WKT.
+
+  Method: takes string, lat-long -> true, false.
 * CANCELED map, reduce, filter, etc. in Java
   CLOSED: [2011-11-10 Thu 08:46]
   - CLOSING NOTE [2011-11-10 Thu 08:47] \\
