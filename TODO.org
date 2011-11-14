@@ -666,7 +666,7 @@
                    (name (alist-ref "name" name)))
               (debug name geometry)))
           (query connection
-                 "select country_code, class, name, get_name_by_language(name, '{\"name\", \"name:en\", \"place_name\", \"place_name:en\", \"int_name\"}'), substring(asBinary(geometry) from 1 for 10) from placex where class = 'place' and name is not null and admin_level < 100 limit 1000;")))))
+                 "select country_code, class, name, get_name_by_language(name, '{\"place_name:en\", \"place_name\", \"name:en\", \"name\", \"int_name\"}'), substring(asBinary(geometry) from 1 for 10) from placex where class = 'place' and get_name_by_language(name, '{\"place_name:en\", \"place_name\", \"name:en\", \"name\", \"int_name\"}') is not null and admin_level < 100 limit 1000;")))))
     
   #+END_SRC
 
@@ -683,6 +683,35 @@
   WKB instead of WKT.
 
   Method: takes string, lat-long -> true, false.
+
+  #+BEGIN_SRC sql
+    DROP FUNCTION IF EXISTS places_having_names(integer, integer);
+    
+    CREATE OR REPLACE FUNCTION places_having_names (integer, integer)
+    RETURNS TABLE (country_code TEXT,
+            class TEXT,
+            name TEXT,
+            geometry GEOMETRY) AS $$
+           DECLARE
+            max_admin_level ALIAS for $1;
+            max_limit ALIAS for $2;
+            languages TEXT[] := ARRAY['place_name:en', 'name:en', 'place_name', 'name', 'int_name'];
+           BEGIN
+            RETURN QUERY SELECT UPPER(placex.country_code),
+                   placex.class,
+                   get_name_by_language(placex.name, languages),
+                   placex.geometry
+            FROM placex WHERE
+                 placex.class = 'place' AND
+                 get_name_by_language(placex.name, languages) IS NOT NULL AND
+                 placex.admin_level < max_admin_level
+            LIMIT max_limit;
+           END
+    $$ LANGUAGE plpgsql;
+    
+    SELECT country_code, class, name, substring(asBinary(geometry) from 1 for 10)
+           FROM places_having_names(100, 100);
+  #+END_SRC
 * CANCELED map, reduce, filter, etc. in Java
   CLOSED: [2011-11-10 Thu 08:46]
   - CLOSING NOTE [2011-11-10 Thu 08:47] \\
