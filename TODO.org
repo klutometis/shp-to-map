@@ -659,14 +659,14 @@
                    (default-type-parsers))
        (lambda (connection)
          (row-for-each*
-          (lambda (country-code class name geometry)
-            (debug name)
+          (lambda (country-code class name get-name geometry)
+            (debug name get-name)
             #;
             (let* ((name (vector->list name))
                    (name (alist-ref "name" name)))
               (debug name geometry)))
           (query connection
-                 "select country_code, class, get_name_by_language(name, '{\"name:en\"}'), substring(asBinary(geometry) from 1 for 10) from placex where class = 'place' and name is not null and admin_level < 100 limit 1000;")))))
+                 "select country_code, class, name, get_name_by_language(name, '{\"name\", \"name:en\", \"place_name\", \"place_name:en\", \"int_name\"}'), substring(asBinary(geometry) from 1 for 10) from placex where class = 'place' and name is not null and admin_level < 100 limit 1000;")))))
     
   #+END_SRC
 
