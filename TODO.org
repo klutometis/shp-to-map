@@ -620,7 +620,7 @@
   uppercased.
 
   #+BEGIN_SRC scheme :tangle places-by-country.scm :shebang #!/usr/bin/env chicken-scheme
-    (use debug postgresql srfi-69 matchable)
+    (use debug postgresql srfi-69 matchable utils)
     
     (define call-with-postgresql-connection
       (case-lambda
@@ -658,16 +658,11 @@
                    key-value-parser
                    (default-type-parsers))
        (lambda (connection)
+         (query connection (read-all "places-having-names.sql"))
          (row-for-each*
-          (lambda (country-code class name get-name geometry)
-            (debug name get-name)
-            #;
-            (let* ((name (vector->list name))
-                   (name (alist-ref "name" name)))
-              (debug name geometry)))
-          (query connection
-                 "select country_code, class, name, get_name_by_language(name, '{\"place_name:en\", \"place_name\", \"name:en\", \"name\", \"int_name\"}'), substring(asBinary(geometry) from 1 for 10) from placex where class = 'place' and get_name_by_language(name, '{\"place_name:en\", \"place_name\", \"name:en\", \"name\", \"int_name\"}') is not null and admin_level < 100 limit 1000;")))))
-    
+          (lambda (country-code class name geometry)
+            (debug country-code class name geometry))
+          (query connection "SELECT * FROM places_having_names(100, 10);")))))
   #+END_SRC
 
   Take a look at reverse-geocoding in Nominatim (bm02): progressively
@@ -684,8 +679,8 @@
 
   Method: takes string, lat-long -> true, false.
 
-  #+BEGIN_SRC sql
-    DROP FUNCTION IF EXISTS places_having_names(integer, integer);
+  #+BEGIN_SRC sql :tangle places-having-names.sql
+    -- DROP FUNCTION IF EXISTS places_having_names(integer, integer);
     
     CREATE OR REPLACE FUNCTION places_having_names (integer, integer)
     RETURNS TABLE (country_code TEXT,
@@ -709,8 +704,9 @@
            END
     $$ LANGUAGE plpgsql;
     
-    SELECT country_code, class, name, substring(asBinary(geometry) from 1 for 10)
-           FROM places_having_names(100, 100);
+    -- SELECT country_code, class, name, substring(asBinary(geometry) from 1 for 10)
+    --        FROM places_having_names(100, 10);
+    
   #+END_SRC
 * CANCELED map, reduce, filter, etc. in Java
   CLOSED: [2011-11-10 Thu 08:46]
