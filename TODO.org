@@ -620,7 +620,14 @@
   uppercased.
 
   #+BEGIN_SRC scheme :tangle places-by-country.scm :shebang #!/usr/bin/env chicken-scheme
-    (use debug postgresql srfi-69 matchable utils)
+    (use
+     debug
+     postgresql
+     srfi-69
+     matchable
+     utils
+     vector-lib
+     )
     
     (define call-with-postgresql-connection
       (case-lambda
@@ -652,10 +659,12 @@
        (lambda (connection)
          (query connection (read-all "places-having-names.sql"))
          (row-for-each*
-          (lambda (country-code class name geometry)
-            (debug country-code class name geometry)
-            )
-          (query connection "SELECT country_code, class, name, asBinary(geometry) FROM places_having_names(100, 1);")))))
+          (lambda (country-code class name geometry geometry-raw)
+            (debug country-code class name geometry geometry-raw)
+            (with-output-to-file
+                "geometry-raw.txt"
+              (lambda () (display geometry-raw))))
+          (query connection "SELECT country_code, class, name, encode(asBinary(geometry), 'hex'), geometry FROM places_having_names(100, 1);")))))
     
   #+END_SRC
 

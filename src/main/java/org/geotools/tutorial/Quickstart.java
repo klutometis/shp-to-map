@@ -9,6 +9,7 @@ import java.util.Random;
 import java.util.List;
 import java.util.LinkedList;
 import java.util.concurrent.Callable;
+import javax.xml.bind.DatatypeConverter;
 
 import org.geotools.data.FileDataStore;
 import org.geotools.data.FileDataStoreFinder;
@@ -42,6 +43,7 @@ import com.vividsolutions.jts.io.InputStreamInStream;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.AbstractIterator;
+import org.apache.commons.io.FileUtils;
 
 public class Quickstart {
     static Random RANDOM = new Random();
@@ -130,6 +132,7 @@ public class Quickstart {
         final List<Geometry> geometries = readGeometries("us_geometry.txt");
         new WKBWriter().write(geometries.get(0), new OutputStreamOutStream(new FileOutputStream("us_geometry.bin")));
         System.out.println(new WKBReader().read(new InputStreamInStream(new FileInputStream("us_geometry.bin"))));
+        System.out.println(new WKBReader().read(DatatypeConverter.parseHexBinary(FileUtils.readFileToString(new File("geometry-raw.txt")))));
         final List<Point> points = randomPoints(POINTS, geometries);
         time(new Callable<Integer>() {
                 public Integer call() {
