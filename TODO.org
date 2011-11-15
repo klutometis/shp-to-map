@@ -650,19 +650,27 @@
               (lambda () (procedure connection))
               (lambda () (disconnect connection)))))))
     
+    
     (define (country-code->type->alist country-code->type)
       (hash-table-fold
        country-code->type
        (lambda (type type->name types->name)
-         (append
+         (alist-cons
+          type
           (hash-table-fold
            type->name
            (lambda (name name->geometries names->geometries)
-             (append (hash-table->alist name->geometries)
-                     names->geometries))
+             (alist-cons name
+                         (hash-table->alist name->geometries)
+                         names->geometries))
            '())
           types->name))
        '()))
+    
+    (define (key-value-parser key-value)
+      (match ((make-composite-parser (list identity identity))
+              key-value)
+        ((key value) (cons key value))))
     
     (let ((country-code->type (make-hash-table)))
       (call-with-postgresql-connection
@@ -670,30 +678,36 @@
          (user . "postgres")
          (password . "postgres")
          (dbname . "gazetteer_world"))
+       (alist-cons "keyvalue"
+                   key-value-parser
+                   (default-type-parsers))
        (lambda (connection)
          (query connection (read-all "places-having-names.sql"))
          (row-for-each*
-          (lambda (country-code type name geometry)
-            (debug country-code type name geometry)
-            (hash-table-update!/default
-             country-code->type
-             country-code
-             (lambda (type->name)
-               (hash-table-update!/default
-                type->name
-                type
-                (lambda (name->geometries)
-                  (hash-table-update!/default
-                   name->geometries
-                   name
-                   (lambda (geometries)
-                     (cons geometry geometries))
-                   '())
-                  name->geometries)
-                (make-hash-table))
-               type->name)
-             (make-hash-table)))
-          (query connection "SELECT country_code, type, name, substring(asBinary(geometry) from 1 for 10) FROM places_having_names(100, 2000000);"))))
+          (lambda (country-code type names geometry)
+            (let ((names (map cdr (vector->list names))))
+              (hash-table-update!/default
+               country-code->type
+               country-code
+               (lambda (type->name)
+                 (hash-table-update!/default
+                  type->name
+                  type
+                  (lambda (name->geometries)
+                    (for-each
+                     (lambda (name)
+                       (hash-table-update!/default
+                        name->geometries
+                        name
+                        (lambda (geometries)
+                          (cons geometry geometries))
+                        '()))
+                     names)
+                    name->geometries)
+                  (make-hash-table))
+                 type->name)
+               (make-hash-table))))
+          (query connection "SELECT upper(country_code), type, name, substring(asBinary(geometry) from 1 for 10) FROM placex WHERE name IS NOT NULL and class = 'place';"))))
       (debug (country-code->type->alist country-code->type)))
     
   #+END_SRC
@@ -746,6 +760,16 @@
     all:
         mvn clean install exec:java -Dexec.mainClass=org.geotools.tutorial.Quickstart
   #+END_SRC
+
+  If it's a gmap, populate once with a binary format as spin-up; YAML
+  stuff at the top of the file. Add some metadata: parse to binary.
+
+  Can specify what parser to use in the YAML. Caching strategy. Two
+  maps: cache map, raw map.
+
+  Take the name based on the country.
+
+  Enumerate and unique.
 * CANCELED map, reduce, filter, etc. in Java
   CLOSED: [2011-11-10 Thu 08:46]
   - CLOSING NOTE [2011-11-10 Thu 08:47] \\
