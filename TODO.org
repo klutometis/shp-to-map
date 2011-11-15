@@ -650,7 +650,21 @@
               (lambda () (procedure connection))
               (lambda () (disconnect connection)))))))
     
-    (let ((country-code->class (make-hash-table)))
+    (define (country-code->type->alist country-code->type)
+      (hash-table-fold
+       country-code->type
+       (lambda (type type->name types->name)
+         (append
+          (hash-table-fold
+           type->name
+           (lambda (name name->geometries names->geometries)
+             (append (hash-table->alist name->geometries)
+                     names->geometries))
+           '())
+          types->name))
+       '()))
+    
+    (let ((country-code->type (make-hash-table)))
       (call-with-postgresql-connection
        '((host . "bm02")
          (user . "postgres")
@@ -659,12 +673,28 @@
        (lambda (connection)
          (query connection (read-all "places-having-names.sql"))
          (row-for-each*
-          (lambda (country-code class name geometry geometry-raw)
-            (debug country-code class name geometry geometry-raw)
-            (with-output-to-file
-                "geometry-raw.txt"
-              (lambda () (display geometry-raw))))
-          (query connection "SELECT country_code, class, name, encode(asBinary(geometry), 'hex'), geometry FROM places_having_names(100, 1);")))))
+          (lambda (country-code type name geometry)
+            (debug country-code type name geometry)
+            (hash-table-update!/default
+             country-code->type
+             country-code
+             (lambda (type->name)
+               (hash-table-update!/default
+                type->name
+                type
+                (lambda (name->geometries)
+                  (hash-table-update!/default
+                   name->geometries
+                   name
+                   (lambda (geometries)
+                     (cons geometry geometries))
+                   '())
+                  name->geometries)
+                (make-hash-table))
+               type->name)
+             (make-hash-table)))
+          (query connection "SELECT country_code, type, name, substring(asBinary(geometry) from 1 for 10) FROM places_having_names(100, 2000000);"))))
+      (debug (country-code->type->alist country-code->type)))
     
   #+END_SRC
 
@@ -687,7 +717,7 @@
     
     CREATE OR REPLACE FUNCTION places_having_names (integer, integer)
     RETURNS TABLE (country_code TEXT,
-            class TEXT,
+            type TEXT,
             name TEXT,
             geometry GEOMETRY) AS $$
            DECLARE
@@ -696,7 +726,7 @@
             languages TEXT[] := ARRAY['place_name:en', 'name:en', 'place_name', 'name', 'int_name'];
            BEGIN
             RETURN QUERY SELECT UPPER(placex.country_code),
-                   placex.class,
+                   placex.type,
                    get_name_by_language(placex.name, languages),
                    placex.geometry
             FROM placex WHERE
@@ -707,7 +737,7 @@
            END
     $$ LANGUAGE plpgsql;
     
-    -- SELECT country_code, class, name, substring(asBinary(geometry) from 1 for 10)
+    -- SELECT country_code, type, name, substring(asBinary(geometry) from 1 for 10)
     --        FROM places_having_names(100, 10);
     
   #+END_SRC
