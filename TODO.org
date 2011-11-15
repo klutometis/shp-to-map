@@ -623,6 +623,7 @@
     (use
      debug
      postgresql
+     srfi-13
      srfi-69
      matchable
      utils
@@ -685,31 +686,44 @@
          (query connection (read-all "places-having-names.sql"))
          (row-for-each*
           (lambda (country-code type names geometry)
-            (let ((names (map cdr (vector->list names))))
-              (hash-table-update!/default
-               country-code->type
-               country-code
-               (lambda (type->name)
-                 (hash-table-update!/default
-                  type->name
-                  type
-                  (lambda (name->geometries)
-                    (for-each
-                     (lambda (name)
-                       (hash-table-update!/default
-                        name->geometries
-                        name
-                        (lambda (geometries)
-                          (cons geometry geometries))
-                        '()))
-                     names)
-                    name->geometries)
-                  (make-hash-table))
-                 type->name)
-               (make-hash-table))))
-          (query connection "SELECT upper(country_code), type, name, substring(asBinary(geometry) from 1 for 10) FROM placex WHERE name IS NOT NULL and class = 'place';"))))
-      (debug (country-code->type->alist country-code->type)))
-    
+            ;; (if (zero? (random 1000)) (debug country-code type names geometry))
+            ;; (debug country-code type names geometry)
+            ;; (debug names (vector->list names))
+            (let* ((names-sans-ref
+                    (remove (lambda (key-value)
+                              (string=? "ref" (car key-value)))
+                            (vector->list names)))
+                   (names (begin (debug names-sans-ref
+                                        (map (compose string-trim-both cdr) names-sans-ref)
+                                        (map string->list (map cdr names-sans-ref)))
+                                 (map (compose string-trim-both cdr) names-sans-ref)))
+                   (non-empty-names (remove string-null? names)))
+              (if (pair? names)
+                  (hash-table-update!/default
+                   country-code->type
+                   country-code
+                   (lambda (type->name)
+                     (hash-table-update!/default
+                      type->name
+                      type
+                      (lambda (name->geometries)
+                        (for-each
+                         (lambda (name)
+                           ;; (debug name)
+                           (hash-table-update!/default
+                            name->geometries
+                            name
+                            (lambda (geometries)
+                              (cons geometry geometries))
+                            '()))
+                         non-empty-names)
+                        name->geometries)
+                      (make-hash-table))
+                     type->name)
+                   (make-hash-table)))))
+          (query connection "SELECT upper(country_code), type, name, substring(asBinary(geometry) from 1 for 10) FROM placex WHERE name IS NOT NULL AND type IS NOT NULL AND class = 'place' LIMIT 1000;"))))
+      (debug (country-code->type->alist country-code->type))
+      )
   #+END_SRC
 
   Take a look at reverse-geocoding in Nominatim (bm02): progressively
