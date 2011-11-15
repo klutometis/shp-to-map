@@ -643,26 +643,20 @@
               (lambda () (procedure connection))
               (lambda () (disconnect connection)))))))
     
-    (define (key-value-parser key-value)
-      (match ((make-composite-parser (list identity identity))
-              key-value)
-        ((key value) (cons key value))))
-    
     (let ((country-code->class (make-hash-table)))
       (call-with-postgresql-connection
        '((host . "bm02")
          (user . "postgres")
          (password . "postgres")
          (dbname . "gazetteer_world"))
-       (alist-cons "keyvalue"
-                   key-value-parser
-                   (default-type-parsers))
        (lambda (connection)
          (query connection (read-all "places-having-names.sql"))
          (row-for-each*
           (lambda (country-code class name geometry)
-            (debug country-code class name geometry))
-          (query connection "SELECT * FROM places_having_names(100, 10);")))))
+            (debug country-code class name geometry)
+            )
+          (query connection "SELECT country_code, class, name, asBinary(geometry) FROM places_having_names(100, 1);")))))
+    
   #+END_SRC
 
   Take a look at reverse-geocoding in Nominatim (bm02): progressively
@@ -707,6 +701,11 @@
     -- SELECT country_code, class, name, substring(asBinary(geometry) from 1 for 10)
     --        FROM places_having_names(100, 10);
     
+  #+END_SRC
+
+  #+BEGIN_SRC makefile :tangle tutorial.mk
+    all:
+        mvn clean install exec:java -Dexec.mainClass=org.geotools.tutorial.Quickstart
   #+END_SRC
 * CANCELED map, reduce, filter, etc. in Java
   CLOSED: [2011-11-10 Thu 08:46]

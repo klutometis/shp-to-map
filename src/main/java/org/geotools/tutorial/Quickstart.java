@@ -2,6 +2,7 @@ package org.geotools.tutorial;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.Random;
@@ -33,7 +34,11 @@ import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.geom.impl.CoordinateArraySequence;
 import com.vividsolutions.jts.io.WKTReader;
 import com.vividsolutions.jts.io.WKTFileReader;
+import com.vividsolutions.jts.io.WKBWriter;
+import com.vividsolutions.jts.io.WKBReader;
 import com.vividsolutions.jts.io.ParseException;
+import com.vividsolutions.jts.io.OutputStreamOutStream;
+import com.vividsolutions.jts.io.InputStreamInStream;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.AbstractIterator;
@@ -123,6 +128,8 @@ public class Quickstart {
 
     public static void main(String[] args) throws Exception {
         final List<Geometry> geometries = readGeometries("us_geometry.txt");
+        new WKBWriter().write(geometries.get(0), new OutputStreamOutStream(new FileOutputStream("us_geometry.bin")));
+        System.out.println(new WKBReader().read(new InputStreamInStream(new FileInputStream("us_geometry.bin"))));
         final List<Point> points = randomPoints(POINTS, geometries);
         time(new Callable<Integer>() {
                 public Integer call() {
