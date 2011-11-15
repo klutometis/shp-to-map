@@ -623,6 +623,7 @@
     (use
      debug
      postgresql
+     utf8
      srfi-13
      srfi-69
      matchable
@@ -689,15 +690,12 @@
             ;; (if (zero? (random 1000)) (debug country-code type names geometry))
             ;; (debug country-code type names geometry)
             ;; (debug names (vector->list names))
-            (let* ((names-sans-ref
-                    (remove (lambda (key-value)
-                              (string=? "ref" (car key-value)))
-                            (vector->list names)))
-                   (names (begin (debug names-sans-ref
-                                        (map (compose string-trim-both cdr) names-sans-ref)
-                                        (map string->list (map cdr names-sans-ref)))
-                                 (map (compose string-trim-both cdr) names-sans-ref)))
-                   (non-empty-names (remove string-null? names)))
+            (let ((names
+                   (delete-duplicates
+                    (map (compose string-trim-both cdr)
+                         (remove (lambda (key-value)
+                                   (string=? "ref" (car key-value)))
+                                 (vector->list names))))))
               (if (pair? names)
                   (hash-table-update!/default
                    country-code->type
@@ -716,14 +714,14 @@
                             (lambda (geometries)
                               (cons geometry geometries))
                             '()))
-                         non-empty-names)
+                         names)
                         name->geometries)
                       (make-hash-table))
                      type->name)
                    (make-hash-table)))))
-          (query connection "SELECT upper(country_code), type, name, substring(asBinary(geometry) from 1 for 10) FROM placex WHERE name IS NOT NULL AND type IS NOT NULL AND class = 'place' LIMIT 1000;"))))
-      (debug (country-code->type->alist country-code->type))
-      )
+          (query connection "SELECT upper(country_code), type, name, substring(asBinary(geometry) from 1 for 10) FROM placex WHERE country_code IS NOT NULL AND name IS NOT NULL AND type IS NOT NULL AND class = 'place' LIMIT 1000;"))))
+      (debug (country-code->type->alist country-code->type)))
+    
   #+END_SRC
 
   Take a look at reverse-geocoding in Nominatim (bm02): progressively
