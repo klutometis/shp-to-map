@@ -1,5 +1,13 @@
 # -*- org -*-
-* TODO Map file for each country
+* TODO Parse city files, check against Factual data.
+  #+BEGIN_SRC java :tangle parse-poi.bsh :shebang #!/usr/bin/env bsh
+    // addClassPath("lib/harro.jar");
+    import java.util.Scanner;
+    
+    Scanner scanner = new Scanner("IL   0101000020E610000058E36C3A826956C0977B37CC86E64340|0101000020E6100000AC25D357C65B56C0F31BCB60310A4440");
+  #+END_SRC
+* DONE Map file for each country
+  CLOSED: [2011-11-16 Wed 14:07]
   #+BEGIN_SRC scheme :tangle places-by-country-file.scm :shebang #!/usr/bin/env chicken-scheme
     (use srfi-1 debug)
     
@@ -674,6 +682,18 @@
               key-value)
         ((key value) (cons key value))))
     
+    (define (walk-geometries country-code->type walk)
+      (hash-table-walk
+       country-code->type
+       (lambda (country-code type->name)
+         (hash-table-walk
+          type->name
+          (lambda (type name->geometries)
+            (hash-table-walk
+             name->geometries
+             (lambda (name geometries)
+               (walk country-code type name geometries))))))))
+    
     (let ((country-code->type (make-hash-table)))
       (call-with-postgresql-connection
        '((host . "bm02")
@@ -719,8 +739,44 @@
                       (make-hash-table))
                      type->name)
                    (make-hash-table)))))
-          (query connection "SELECT upper(country_code), type, name, substring(asBinary(geometry) from 1 for 10) FROM placex WHERE country_code IS NOT NULL AND name IS NOT NULL AND type IS NOT NULL AND class = 'place' LIMIT 1000;"))))
-      (debug (country-code->type->alist country-code->type)))
+          (query connection "SELECT upper(country_code), type, name, geometry FROM placex WHERE country_code IS NOT NULL AND name IS NOT NULL AND type IS NOT NULL AND class = 'place';"))))
+      ;; (debug country-code->type
+      ;;        (country-code->type->alist country-code->type))
+      #;
+      (let ((country-code-&c.->output (make-hash-table)))
+        (walk-geometries
+         country-code->type
+         (lambda (country-code type name geometries)
+           (let ((output (hash-table-ref/default
+                          country-code-&c.->output
+                          (cons country-code type)
+                          (open-output-file
+                           (format "poi/~a.~a.map" country-code type)))))
+             (debug country-code
+                    type
+                    name
+                    (map (cute substring <> 0 10) geometries)
+                    (format output
+                            "~a\t~a\n"
+                            name
+                            (string-join geometries "|"))))))
+        (hash-table-walk country-code-&c.->output
+                         (lambda (country-code-&c. output)
+                           (debug 'harro
+                                  country-code-&c.)
+                           (close-output-file output))))
+      (walk-geometries
+       country-code->type
+       (lambda (country-code type name geometries)
+         (if (zero? (random 1000)) (debug country-code type name geometries))
+         (condition-case
+          (let ((file (file-open (format "poi/poi.~a.~a.map" country-code type)
+                                 (+ open/wronly open/append open/creat))))
+            (file-write file (format "~a\t~a\n"
+                                     name
+                                     (string-join geometries "|")))
+            (file-close file))
+          (() (debug '************************* country-code type name))))))
     
   #+END_SRC
 
@@ -782,6 +838,9 @@
   Take the name based on the country.
 
   Enumerate and unique.
+
+  Take country city, grab data that's geocoded; see what passes
+  test. Grab a bunch of points from the API; test it.
 * CANCELED map, reduce, filter, etc. in Java
   CLOSED: [2011-11-10 Thu 08:46]
   - CLOSING NOTE [2011-11-10 Thu 08:47] \\
