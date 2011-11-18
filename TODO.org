@@ -1217,3 +1217,5 @@
    - scarecrow map generator
    - summaries? inputs?
    - validator: inputs, summaries
+** Fri Nov 18 15:16:12 PST 2011
+   - create bounding boxes at spin-up
