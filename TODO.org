@@ -1,4 +1,58 @@
 # -*- org -*-
+* TODO Test countries.
+  #+BEGIN_SRC scheme :tangle country-geometries.scm :shebang #!/usr/bin/env chicken-scheme
+    (use
+     debug
+     postgresql
+     srfi-69
+     )
+    
+    (define call-with-postgresql-connection
+      (case-lambda
+       ((connection-spec procedure)
+        (call-with-postgresql-connection
+         connection-spec
+         (default-type-parsers)
+         procedure))
+       ((connection-spec type-parsers procedure)
+        (call-with-postgresql-connection
+         connection-spec
+         type-parsers
+         (default-type-unparsers)
+         procedure))
+       ((connection-spec type-parsers type-unparsers procedure)
+        (let ((connection #f))
+          (dynamic-wind
+              (lambda () (set! connection
+                               (connect connection-spec
+                                        type-parsers
+                                        type-unparsers)))
+              (lambda () (procedure connection))
+              (lambda () (disconnect connection)))))))
+    
+    (let ((country->geometry (make-hash-table)))
+      (call-with-postgresql-connection
+       '((host . "bm02")
+         (user . "postgres")
+         (password . "postgres")
+         (dbname . "gazetteer_world"))
+       (lambda (connection)
+         (row-for-each* (lambda (country-code geometry)
+                          (hash-table-update!/default
+                           country->geometry
+                           country-code
+                           (lambda (geometries)
+                             (cons geometry geometries))
+                           '()))
+                       (query connection "SELECT UPPER(country_code), geometry FROM country;"))))
+      (with-output-to-file
+          "country-geometries.poi"
+        (lambda ()
+          (hash-table-walk
+           country->geometry
+           (lambda (country geometries)
+             (format #t "~a\t~a~%" country (string-join geometries "|")))))))
+  #+END_SRC
 * TODO Parse city, state, country files, check against Factual data.
   #+BEGIN_SRC java :tangle parse-geometries.bsh :shebang #!/usr/bin/env bsh
     addClassPath("lib/guava-10.0.1.jar");
@@ -782,10 +836,11 @@
         (let ((connection #f))
           (dynamic-wind
               (lambda () (set! connection
-                               (connect connection-spec type-parsers type-unparsers)))
+                               (connect connection-spec
+                                        type-parsers
+                                        type-unparsers)))
               (lambda () (procedure connection))
               (lambda () (disconnect connection)))))))
-    
     
     (define (country-code->type->alist country-code->type)
       (hash-table-fold
