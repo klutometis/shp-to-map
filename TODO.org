@@ -1,8 +1,46 @@
 # -*- org -*-
-* TODO Produce envelope-geometries given pipe-delimited hexes.
+* TODO Test point against a list of envelope-geometries.
+  #+BEGIN_SRC java :tangle test-against-envelope-geometries.bsh :shebang #!/usr/bin/env bsh
+    source("envelope-geometries.bsh");
+    
+    import com.vividsolutions.jts.geom.Point;
+    import com.vividsolutions.jts.geom.Coordinate;
+    import com.vividsolutions.jts.geom.GeometryFactory;
+    import com.vividsolutions.jts.geom.impl.CoordinateArraySequence;
+    
+    geometryFactory = new GeometryFactory();
+    
+    point(latitude, longitude) {
+        return new Point(new CoordinateArraySequence(new Coordinate[] {
+                    new Coordinate(longitude, latitude)
+                }),
+            geometryFactory);
+    }
+    
+    covers(envelopeGeometries, latitude, longitude) {
+        point = point(latitude, longitude);
+        for (envelopeGeometry: envelopeGeometries) {
+            if (envelopeGeometry.envelope.covers(point) &&
+                envelopeGeometry.geometry.covers(point)) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    print(covers(envelopeGeometries, 38.6815049, -75.9773377));
+    
+  #+END_SRC
+* DONE Produce envelope-geometries given pipe-delimited hexes.
+  CLOSED: [2011-11-21 Mon 11:10]
+  - CLOSING NOTE [2011-11-21 Mon 11:10] \\
+    Testing lists of envelope-geometries is defective under beanshell,
+    though.
   #+BEGIN_SRC java :tangle envelope-geometries.bsh :shebang #!/usr/bin/env bsh
     addClassPath("lib/guava-10.0.1.jar");
     addClassPath("lib/jts-1.12.jar");
+    addClassPath("lib/junit-4.10.jar");
+    addClassPath("lib/junit.jar");
     
     import java.util.Arrays;
     import java.util.LinkedList;
@@ -12,20 +50,24 @@
     import com.google.common.base.Function;
     import com.vividsolutions.jts.io.WKTReader;
     import com.vividsolutions.jts.io.WKBReader;
+    import org.junit.runner.JUnitCore;
+    import org.junit.runner.Request;
+    // import org.junit.Assert;
+    import junit.framework.Assert;
+    import junit.framework.TestCase;
     
     envelopeGeometry(envelope, geometry) {
         envelope = envelope;
         geometry = geometry;
     
         public equals(envelopeGeometry) {
-            print("euothnoeuthn");
             return this.envelope.equals(envelopeGeometry.envelope) &&
                 this.geometry.equals(envelopeGeometry.geometry);
         }
     
         public hashCode() {
-            print("euothnoeuthn");
-            return 1;
+            return this.envelope.hashCode() +
+                this.geometry.hashCode();
         }
     
         return this;
@@ -45,9 +87,9 @@
                         });
     }
     
-    // POINT (-75.9773377 38.6815049)
-    // POINT (-84.3575958 32.7126383)
-    print(toEnvelopeGeometries("0101000020E610000077A96CB38CFE52C029C8748D3B574340|0101000020E6100000F78B7ED9E21655C0433058BB375B4040").equals(new LinkedList() {
+    envelopeGeometries = toEnvelopeGeometries("0101000020E610000077A96CB38CFE52C029C8748D3B574340|0101000020E6100000F78B7ED9E21655C0433058BB375B4040");
+    
+    testEnvelopeGeometries = new LinkedList() {
             {
                 reader = new WKTReader();
                 geometry = reader.read("POINT (-75.9773377 38.6815049)");
@@ -57,10 +99,27 @@
                 add(envelopeGeometry(geometry.getEnvelope(),
                                      geometry));
             }
-        }));
+        };
     
-    envelopeGeometries = toEnvelopeGeometries("0101000020E610000077A96CB38CFE52C029C8748D3B574340|0101000020E6100000F78B7ED9E21655C0433058BB375B4040");
-    print(envelopeGeometries.equals(envelopeGeometries));
+    // Should be true, but isn't; has to do with defective list-equality?
+    print(envelopeGeometries.equals(testEnvelopeGeometries));
+    
+    public class news extends Object {
+        testHarro() {
+            Assert.assertTrue(false);
+        }
+    }
+    
+    print(new JUnitCore().run(Request.method(news.class, "testHarro")).getFailures());
+    print(new JUnitCore().run(new TestCase() {
+            {
+                setName("run");
+            }
+            
+            run() {
+                Assert.assertTrue(false);
+            }
+        }).wasSuccessful());
     
   #+END_SRC
 * DONE Test countries.
@@ -140,6 +199,11 @@
     print(hits + ", " + misses);
     
   #+END_SRC
+
+  There's ad-hoc =country= and =us_state= tables, by the way; might
+  have to pull from there. Doesn't explain the bad performance of
+  city-data, though; or was it state that netted us 20% performance?
+  No, it was [[test-against-cities][cities]].
 * DONE Parse city, state, country files, check against Factual data.
   CLOSED: [2011-11-21 Mon 08:32]
   - CLOSING NOTE [2011-11-21 Mon 08:33] \\
@@ -298,6 +362,8 @@
     
     
   #+END_SRC
+
+# <<test-against-cities>>
 
   #+BEGIN_SRC java :tangle test-against-cities.bsh :shebang #!/usr/bin/env bsh
     source("parse-geometries.bsh");
