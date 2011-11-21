@@ -1,5 +1,72 @@
 # -*- org -*-
-* TODO Test countries.
+* TODO Produce envelope-geometries given pipe-delimited hexes.
+  #+BEGIN_SRC java :tangle envelope-geometries.bsh :shebang #!/usr/bin/env bsh
+    addClassPath("lib/guava-10.0.1.jar");
+    addClassPath("lib/jts-1.12.jar");
+    
+    import java.util.Arrays;
+    import java.util.LinkedList;
+    import javax.xml.bind.DatatypeConverter;
+    
+    import com.google.common.collect.Lists;
+    import com.google.common.base.Function;
+    import com.vividsolutions.jts.io.WKTReader;
+    import com.vividsolutions.jts.io.WKBReader;
+    
+    envelopeGeometry(envelope, geometry) {
+        envelope = envelope;
+        geometry = geometry;
+    
+        public equals(envelopeGeometry) {
+            print("euothnoeuthn");
+            return this.envelope.equals(envelopeGeometry.envelope) &&
+                this.geometry.equals(envelopeGeometry.geometry);
+        }
+    
+        public hashCode() {
+            print("euothnoeuthn");
+            return 1;
+        }
+    
+        return this;
+    }
+    
+    public toEnvelopeGeometries(hexen) {
+        reader = new WKBReader();
+        
+        Lists.transform(Arrays.asList(hexen.split("\\|")),
+                        new Function() {
+                            apply(hex) {
+                                geometry = reader.read
+                                    (DatatypeConverter.parseHexBinary(hex));
+                                return envelopeGeometry(geometry.getEnvelope(),
+                                                        geometry);
+                            }
+                        });
+    }
+    
+    // POINT (-75.9773377 38.6815049)
+    // POINT (-84.3575958 32.7126383)
+    print(toEnvelopeGeometries("0101000020E610000077A96CB38CFE52C029C8748D3B574340|0101000020E6100000F78B7ED9E21655C0433058BB375B4040").equals(new LinkedList() {
+            {
+                reader = new WKTReader();
+                geometry = reader.read("POINT (-75.9773377 38.6815049)");
+                add(envelopeGeometry(geometry.getEnvelope(),
+                                     geometry));
+                geometry = reader.read("POINT (-84.3575958 32.7126383)");
+                add(envelopeGeometry(geometry.getEnvelope(),
+                                     geometry));
+            }
+        }));
+    
+    envelopeGeometries = toEnvelopeGeometries("0101000020E610000077A96CB38CFE52C029C8748D3B574340|0101000020E6100000F78B7ED9E21655C0433058BB375B4040");
+    print(envelopeGeometries.equals(envelopeGeometries));
+    
+  #+END_SRC
+* DONE Test countries.
+  CLOSED: [2011-11-21 Mon 08:31]
+  - CLOSING NOTE [2011-11-21 Mon 08:32] \\
+    17 misses, 759 hits: 99.97%
   #+BEGIN_SRC scheme :tangle country-geometries.scm :shebang #!/usr/bin/env chicken-scheme
     (use
      debug
@@ -53,7 +120,30 @@
            (lambda (country geometries)
              (format #t "~a\t~a~%" country (string-join geometries "|")))))))
   #+END_SRC
-* TODO Parse city, state, country files, check against Factual data.
+
+  #+BEGIN_SRC java :tangle test-against-countries.bsh :shebang #!/usr/bin/env bsh
+    source("parse-geometries.bsh");
+    
+    US = parseGeometries("country-geometries.poi").get("US");
+    addresses = parseAddresses("us_address_sample_2.tab");
+    
+    hits = misses = 0;
+    
+    for (address: addresses) {
+        if (covers(US, address.point)) {
+            hits++;
+        } else {
+            misses++;
+        }        
+    }
+    
+    print(hits + ", " + misses);
+    
+  #+END_SRC
+* DONE Parse city, state, country files, check against Factual data.
+  CLOSED: [2011-11-21 Mon 08:32]
+  - CLOSING NOTE [2011-11-21 Mon 08:33] \\
+    376 nulls, 94 hits, 306 misses
   #+BEGIN_SRC java :tangle parse-geometries.bsh :shebang #!/usr/bin/env bsh
     addClassPath("lib/guava-10.0.1.jar");
     addClassPath("lib/jts-1.12.jar");
@@ -231,26 +321,6 @@
     }
     
     print(nulls + ", " + hits + ", " + misses);
-    
-  #+END_SRC
-
-  #+BEGIN_SRC java :tangle test-against-countries.bsh :shebang #!/usr/bin/env bsh
-    source("parse-geometries.bsh");
-    
-    US = parseGeometries("country-geometries.poi").get("US");
-    addresses = parseAddresses("us_address_sample_2.tab");
-    
-    hits = misses = 0;
-    
-    for (address: addresses) {
-        if (covers(US, address.point)) {
-            hits++;
-        } else {
-            misses++;
-        }        
-    }
-    
-    print(hits + ", " + misses);
     
   #+END_SRC
 * DONE Map file for each country
