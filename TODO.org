@@ -55,6 +55,7 @@
     // import org.junit.Assert;
     import junit.framework.Assert;
     import junit.framework.TestCase;
+    import junit.framework.Test;
     
     envelopeGeometry(envelope, geometry) {
         envelope = envelope;
@@ -112,12 +113,11 @@
     
     print(new JUnitCore().run(Request.method(news.class, "testHarro")).getFailures());
     print(new JUnitCore().run(new TestCase() {
-            {
-                setName("run");
-            }
-            
             run() {
-                Assert.assertTrue(false);
+            }
+    
+            testHarro() {
+                print("uoetneuonth");
             }
         }).wasSuccessful());
     
@@ -1016,6 +1016,7 @@
      postgresql
      utf8
      srfi-13
+     srfi-14
      srfi-69
      matchable
      utils
@@ -1154,13 +1155,19 @@
        (lambda (country-code type name geometries)
          (if (zero? (random 1000)) (debug country-code type name geometries))
          (condition-case
-          (let ((file (file-open (format "poi/poi.~a.~a.map" country-code type)
-                                 (+ open/wronly open/append open/creat))))
+          (let* ((directory (format "poi/poi.~a" (string-downcase country-code)))
+                 (file (begin
+                         (create-directory directory)
+                         (file-open (format "~a/~a.map" directory
+                                            ((compose (cut string-filter char-set:letter <>)
+                                                      string-titlecase) type))
+                                    (+ open/wronly open/append open/creat)))))
             (file-write file (format "~a\t~a\n"
                                      name
                                      (string-join geometries "|")))
             (file-close file))
-          (() (debug '************************* country-code type name))))))
+          (exn (exn)
+           (debug country-code type name exn))))))
     
   #+END_SRC
 
