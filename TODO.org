@@ -1,5 +1,36 @@
 # -*- org -*-
-* TODO Test point against a list of envelope-geometries.
+* TODO Test against Tiger data.
+  #+BEGIN_SRC java :tangle tiger.bsh :shebang #!/usr/bin/env bsh
+    addClassPath("lib/gt-shapefile-8.0-M3.jar");
+    addClassPath("lib/jts-1.12.jar");
+    
+    import java.net.URL;
+    
+    import org.geotools.data.shapefile.ShapefileDataStore;
+    import com.vividsolutions.jts.io.WKBWriter;
+    import com.vividsolutions.jts.io.WKTReader;
+    
+    // for (feature: new ShapefileDataStore(new URL("file:shp/tl_2010_01_state10.shp")).getFeatureSource().getFeatures().toArray()) {
+    //     print(feature.getDefaultGeometry().getClass());
+    //     print(feature.getType().getAttributeDescriptors());
+    //     print(feature.getType().getTypes());
+    //     print(feature.getAttribute("NAME10"));
+    // }
+    
+    // reader = new WKTReader();
+    writer = new WKBWriter();
+    
+    for (feature: new ShapefileDataStore(new URL("file:///tmp/places/tl_2010_06_place10.shp")).getFeatureSource().getFeatures().toArray()) {
+        // print(feature.getDefaultGeometry().getClass());
+        // print(feature.getType().getAttributeDescriptors());
+        // print(feature.getType().getTypes());
+        hex = WKBWriter.toHex(writer.write(feature.getDefaultGeometry()));
+        print(feature.getAttribute("NAME10") + "\t" + hex);
+    }
+    
+  #+END_SRC
+* DONE Test point against a list of envelope-geometries.
+  CLOSED: [2011-11-22 Tue 10:53]
   #+BEGIN_SRC java :tangle test-against-envelope-geometries.bsh :shebang #!/usr/bin/env bsh
     source("envelope-geometries.bsh");
     
