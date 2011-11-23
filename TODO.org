@@ -1,14 +1,60 @@
 # -*- org -*-
+* TODO Tool to convert shapefiles to maps.
+  Need to have an internal map if we're going to bucket collisions.
+
+  See Hickey's [[https://github.com/clojure/clojure/blob/master/src/jvm/clojure/lang/RT.java#L277][addURL]]:
+
+  #+BEGIN_SRC java
+    static public void addURL(Object url) throws MalformedURLException{
+        URL u = (url instanceof String) ? (new URL((String) url)) : (URL) url;
+        ClassLoader ccl = Thread.currentThread().getContextClassLoader();
+        if(ccl instanceof DynamicClassLoader)
+            ((DynamicClassLoader)ccl).addURL(u);
+        else
+            throw new IllegalAccessError("Context classloader is not a DynamicClassLoader");
+    }
+  #+END_SRC
+
+  It doesn't work anymore because the =ContextClassLoader= is no
+  longer a [[https://github.com/clojure/clojure/blob/master/src/jvm/clojure/lang/DynamicClassLoader.java][DynamicClassLoader]] (though it is a [[http://docs.oracle.com/javase/7/docs/api/java/net/URLClassLoader.html][URLClassLoader]]).
+
+  #+BEGIN_SRC clojure :tangle shp-to-map.clj :shebang #!/usr/bin/env clj
+    (import 'java.net.URLClassLoader)
+    (import 'java.net.URL)
+    (import 'java.io.File)
+    
+    ;;; http://jimlife.wordpress.com/2007/12/19/java-adding-new-classpath-at-runtime/
+    ;;; and
+    ;;; https://github.com/richhickey/clojure-contrib/blob/a1c66df5287776b4397cf3929a5f498fbb34ea32/src/main/clojure/clojure/contrib/java_utils.clj#L208
+    (let [add-url (.getDeclaredMethod URLClassLoader
+                                      "addURL"
+                                      (into-array [URL]))]
+      (.setAccessible add-url true)
+      (defn add-classpath-new [file]
+        (.invoke add-url
+                 (ClassLoader/getSystemClassLoader)
+                 (into-array [(.toURL (.toURI (new File file)))]))))
+    
+    (add-classpath-new "lib/gt-shapefile-8.0-M3.jar")
+    
+  #+END_SRC
 * TODO Test against Tiger data.
+  [[http://www.itl.nist.gov/fipspubs/fip5-2.htm][FIPS codes for states]].
+
   #+BEGIN_SRC java :tangle tiger.bsh :shebang #!/usr/bin/env bsh
     addClassPath("lib/gt-shapefile-8.0-M3.jar");
     addClassPath("lib/jts-1.12.jar");
+    addClassPath("lib/guava-10.0.1.jar");
     
     import java.net.URL;
+    import java.util.HashMap;
+    import java.nio.file.Files;
+    import java.nio.file.FileSystems;
     
     import org.geotools.data.shapefile.ShapefileDataStore;
     import com.vividsolutions.jts.io.WKBWriter;
     import com.vividsolutions.jts.io.WKTReader;
+    import com.google.common.collect.ImmutableMap;
     
     // for (feature: new ShapefileDataStore(new URL("file:shp/tl_2010_01_state10.shp")).getFeatureSource().getFeatures().toArray()) {
     //     print(feature.getDefaultGeometry().getClass());
@@ -17,18 +63,104 @@
     //     print(feature.getAttribute("NAME10"));
     // }
     
+    FIPStoState = new ImmutableMap.Builder()
+        .put("01", "AL")
+        .put("02", "AK")
+        .put("04", "AZ")
+        .put("05", "AR")
+        .put("06", "CA")
+        .put("08", "CO")
+        .put("09", "CT")
+        .put("10", "DE")
+        .put("11", "DC")
+        .put("12", "FL")
+        .put("13", "GA")
+        .put("15", "HI")
+        .put("16", "ID")
+        .put("17", "IL")
+        .put("18", "IN")
+        .put("19", "IA")
+        .put("20", "KS")
+        .put("21", "KY")
+        .put("22", "LA")
+        .put("23", "ME")
+        .put("24", "MD")
+        .put("25", "MA")
+        .put("26", "MI")
+        .put("27", "MN")
+        .put("28", "MS")
+        .put("29", "MO")
+        .put("30", "MT")
+        .put("31", "NE")
+        .put("32", "NV")
+        .put("33", "NH")
+        .put("34", "NJ")
+        .put("35", "NM")
+        .put("36", "NY")
+        .put("37", "NC")
+        .put("38", "ND")
+        .put("39", "OH")
+        .put("40", "OK")
+        .put("41", "OR")
+        .put("42", "PA")
+        .put("44", "RI")
+        .put("45", "SC")
+        .put("46", "SD")
+        .put("47", "TN")
+        .put("48", "TX")
+        .put("49", "UT")
+        .put("50", "VT")
+        .put("51", "VA")
+        .put("53", "WA")
+        .put("54", "WV")
+        .put("55", "WI")
+        .put("56", "WY")
+        .put("60", "AS")
+        .put("64", "FM")
+        .put("66", "GU")
+        .put("68", "MH")
+        .put("69", "MP")
+        .put("70", "PW")
+        .put("72", "PR")
+        .put("74", "UM")
+        .put("78", "VI")
+        .build();
+    
     // reader = new WKTReader();
     writer = new WKBWriter();
     
-    for (feature: new ShapefileDataStore(new URL("file:///tmp/places/tl_2010_06_place10.shp")).getFeatureSource().getFeatures().toArray()) {
+    for (feature: new ShapefileDataStore(new URL("file:places/tl_2010_06_place10.shp")).getFeatureSource().getFeatures().toArray()) {
         // print(feature.getDefaultGeometry().getClass());
         // print(feature.getType().getAttributeDescriptors());
         // print(feature.getType().getTypes());
+        // print(feature);
+        // print(FIPStoState.get(feature.getAttribute("STATEFP10")));
         hex = WKBWriter.toHex(writer.write(feature.getDefaultGeometry()));
         print(feature.getAttribute("NAME10") + "\t" + hex);
+        // break;
     }
     
+    // shapefiles =
+    //     Files.newDirectoryStream(FileSystems.getDefault().getPath("places"),
+    //                              "*.shp").iterator();
+    
+    // for (file: shapefiles) {
+    //     print(file);
+    // }
+    
+    // // for (file: Files.newDirectoryStream(FileSystems.getDefault().getPath("places"), "*.shp")) {
+    // //     print(file);
+    // // }
   #+END_SRC
+
+  Create tool: here's a shapefile, here's a predicate; out: mapfile;
+  value of attribute x = y (regex).
+
+  shp2pgsql: creates table, shape file, gives SQL statement;
+
+  US: state, city, zip; UK: city, zip(?).
+
+  E.g. lower the score based on non-pip; sanity check.
 * DONE Test point against a list of envelope-geometries.
   CLOSED: [2011-11-22 Tue 10:53]
   #+BEGIN_SRC java :tangle test-against-envelope-geometries.bsh :shebang #!/usr/bin/env bsh
