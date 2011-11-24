@@ -36,6 +36,11 @@
                  (into-array [(.toURL (.toURI (new File file)))]))))
     
     (add-classpath-new "lib/gt-shapefile-8.0-M3.jar")
+    (add-classpath-new "lib/jts-1.12.jar")
+    
+    (import 'org.geotools.data.shapefile.ShapefileDataStore)
+    
+    (println (map (fn [feature] (.getClass feature)) (.toArray (.getFeatures (.getFeatureSource (new ShapefileDataStore (.toURL (.toURI (new File "places/tl_2010_06_place10.shp")))))))))
     
   #+END_SRC
 * TODO Test against Tiger data.
