@@ -35,31 +35,37 @@
     (let [files '("places/tl_2010_01_place10.shp"
                   "places/tl_2010_02_place10.shp")
           writer (new WKBWriter)]
-      (debug (reduce
-              (fn [name->geometries file]
-                (debug file)
-                (reduce
-                 (fn [name->geometries feature]
-                   (let [hex (WKBWriter/toHex (.write writer (.getDefaultGeometry feature)))]
-                     ;; Extracting the name should be a command-line
-                     ;; parameter, shouldn't it?
-                     (let [name (.getAttribute feature "NAME10")]
-                       (assoc name->geometries
-                         name
-                         (cons hex
-                               (get name->geometries
-                                    name
-                                    '()))))))
-                 name->geometries
-                 (.toArray
-                  (.getFeatures
-                   (.getFeatureSource
-                    (new ShapefileDataStore
-                         (.toURL (.toURI (new File file)))))))))
-              {}
-              files)))
+      (doseq [[name geometries]
+              (reduce
+               (fn [name->geometries file]
+                 (reduce
+                  (fn [name->geometries feature]
+                    ;; Extracting the geometry should be a
+                    ;; command-line parameter, shouldn't it?
+                    (let [hex (WKBWriter/toHex (.write writer (.getDefaultGeometry feature)))]
+                      ;; Extracting the name should be a command-line
+                      ;; parameter, shouldn't it?
+                      (let [name (.getAttribute feature "NAME10")]
+                        (assoc name->geometries
+                          name
+                          (cons (subs hex 0 10)
+                                (get name->geometries
+                                     name
+                                     '()))))))
+                  name->geometries
+                  (.toArray
+                   (.getFeatures
+                    (.getFeatureSource
+                     (new ShapefileDataStore
+                          (.toURL (.toURI (new File file)))))))))
+               {}
+               files)]
+        (printf "%s\t%s\n" name (apply str (interpose "|" geometries)))))
     
   #+END_SRC
+
+  Tool has parameters for name-extraction, geometry-extraction and
+  filtering; which are clojure functions against the feature.
 * TODO Test against Tiger data.
   [[http://www.itl.nist.gov/fipspubs/fip5-2.htm][FIPS codes for states]].
 
