@@ -19,28 +19,45 @@
   longer a [[https://github.com/clojure/clojure/blob/master/src/jvm/clojure/lang/DynamicClassLoader.java][DynamicClassLoader]] (though it is a [[http://docs.oracle.com/javase/7/docs/api/java/net/URLClassLoader.html][URLClassLoader]]).
 
   #+BEGIN_SRC clojure :tangle shp-to-map.clj :shebang #!/usr/bin/env clj
+    (use 'add-classpath.core)
+    (use 'debug.core)
+    
+    (add-classpath "lib/gt-shapefile-8.0-M3.jar")
+    (add-classpath "lib/jts-1.12.jar")
+    
     (import 'java.net.URLClassLoader)
     (import 'java.net.URL)
     (import 'java.io.File)
     
-    ;;; http://jimlife.wordpress.com/2007/12/19/java-adding-new-classpath-at-runtime/
-    ;;; and
-    ;;; https://github.com/richhickey/clojure-contrib/blob/a1c66df5287776b4397cf3929a5f498fbb34ea32/src/main/clojure/clojure/contrib/java_utils.clj#L208
-    (let [add-url (.getDeclaredMethod URLClassLoader
-                                      "addURL"
-                                      (into-array [URL]))]
-      (.setAccessible add-url true)
-      (defn add-classpath-new [file]
-        (.invoke add-url
-                 (ClassLoader/getSystemClassLoader)
-                 (into-array [(.toURL (.toURI (new File file)))]))))
-    
-    (add-classpath-new "lib/gt-shapefile-8.0-M3.jar")
-    (add-classpath-new "lib/jts-1.12.jar")
-    
     (import 'org.geotools.data.shapefile.ShapefileDataStore)
+    (import 'com.vividsolutions.jts.io.WKBWriter)
     
-    (println (map (fn [feature] (.getClass feature)) (.toArray (.getFeatures (.getFeatureSource (new ShapefileDataStore (.toURL (.toURI (new File "places/tl_2010_06_place10.shp")))))))))
+    (let [files '("places/tl_2010_01_place10.shp"
+                  "places/tl_2010_02_place10.shp")
+          writer (new WKBWriter)]
+      (debug (reduce
+              (fn [name->geometries file]
+                (debug file)
+                (reduce
+                 (fn [name->geometries feature]
+                   (let [hex (WKBWriter/toHex (.write writer (.getDefaultGeometry feature)))]
+                     ;; Extracting the name should be a command-line
+                     ;; parameter, shouldn't it?
+                     (let [name (.getAttribute feature "NAME10")]
+                       (assoc name->geometries
+                         name
+                         (cons hex
+                               (get name->geometries
+                                    name
+                                    '()))))))
+                 name->geometries
+                 (.toArray
+                  (.getFeatures
+                   (.getFeatureSource
+                    (new ShapefileDataStore
+                         (.toURL (.toURI (new File file)))))))))
+              {}
+              files)))
     
   #+END_SRC
 * TODO Test against Tiger data.
