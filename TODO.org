@@ -1,5 +1,67 @@
 # -*- org -*-
-* TODO Tool to convert shapefiles to maps.
+* TODO Annotated function
+  See [[http://stackoverflow.com/questions/5306015/equivilent-of-javas-tostring-for-clojure-functions][toString() for IFn]].
+
+  #+BEGIN_SRC clojure :tangle annotated-function.clj :shebang #!/usr/bin/env clj
+    (use 'debug.core)
+    (import 'clojure.lang.AFunction)
+    
+    (defmethod print-method clojure.lang.AFunction
+      [f writer]
+      (print-simple (:doc (meta f)) writer))
+    
+    (defn foo ^{:doc "docstring"} [] 2)
+    
+    (debug foo
+           (with-meta foo {:doc "docstring"}))
+    
+  #+END_SRC
+
+  #+BEGIN_SRC clojure :tangle named-function.clj :shebang #!/usr/bin/env clj
+    (use 'debug.core)
+    
+    (import 'clojure.lang.IFn)
+    
+    (defn name-fn [name fn]
+      (reify IFn
+        (toString [this] name)
+        ;; Would have to implement one of these for each `invoke' in IFn:
+        ;; there are 22.
+        (invoke [this arg1] (fn arg1))))
+    
+    (defmacro source-fn [name function]
+      `(def ~name
+         (reify IFn
+           (toString [this] (str (quote ~function)))
+           (invoke [this arg1#] (~function arg1#)))))
+    
+    (def plusish (name-fn "(fn [x] (+ x x))"
+                          (fn [x] (+ x x))))
+    
+    (source-fn plusishish (fn [y] (+ y y)))
+    
+    (debug
+     ((reify clojure.lang.IFn
+        (toString [this] "harro")
+        (invoke [this a]
+          ((fn [x] (+ x x))
+           a)))
+      2)
+     (reify clojure.lang.IFn
+       (toString [this] "harro")
+       (invoke [this a]
+         ((fn [x] (+ x x))
+          a)))
+     plusish
+     (plusish 2)
+     plusishish
+     (plusishish 2)
+     )
+  #+END_SRC
+* TODO Switch to Clojure-friendly geotools.
+  https://github.com/iwillig/geoscript-clj
+* DONE Tool to convert shapefiles to maps.
+  CLOSED: [2011-11-30 Wed 12:43]
   Need to have an internal map if we're going to bucket collisions.
 
   See Hickey's [[https://github.com/clojure/clojure/blob/master/src/jvm/clojure/lang/RT.java#L277][addURL]]:
@@ -24,28 +86,59 @@
     (add-classpath "lib/gt-shapefile-8.0-M3.jar")
     (add-classpath "lib/jts-1.12.jar")
     (add-classpath "lib/tools.cli-0.2.2-SNAPSHOT.jar")
-    (add-classpath "lib/cadr-1.0.0-SNAPSHOT-standalone.jar")
-    (add-classpath "lib/lambda-1.0.1-SNAPSHOT.jar")
+    ;; (add-classpath "lib/cadr-1.0.0-SNAPSHOT-standalone.jar")
+    (add-classpath "lib/lambda-1.0.1-20111019.122151-1.jar")
     
     (use 'debug.core)
     (use 'clojure.tools.cli)
-    (use 'cadr.core)
+    ;; (use 'cadr.core)
     (use 'lambda.core)
     
     (import 'java.net.URLClassLoader)
     (import 'java.net.URL)
     (import 'java.io.File)
     
+    (import 'clojure.lang.AFunction)
+    (import 'clojure.lang.IFn)
     (import 'org.geotools.data.shapefile.ShapefileDataStore)
     (import 'com.vividsolutions.jts.io.WKBWriter)
+    
+    ;;; This doesn't work, since it doesn't redefine it for clojure.core.
+    (defmethod print-method AFunction
+      [f writer]
+      (print-simple (:doc (meta f)) writer))
     
     (def eval-string
       (λ [string]
          ((comp eval read-string) string)))
     
-    (def default-feature-name
+    (defmacro source-fn [name function]
+      `(def ~name
+         (reify IFn
+           (toString [this] (str (quote ~function)))
+           (invoke [this arg1#] (~function arg1#)))))
+    
+    ;; (def default-feature-name
+    ;;   (reify clojure.lang.IFn
+    ;;     (toString [this] "euohn toeuthnueothnueohn teouthn oeuhn toeuoeuthn")
+    ;;     (invoke [this feature]
+    ;;       ((λ [feature]
+    ;;           (.getAttribute feature "NAME10"))
+    ;;        feature))))
+    
+    (source-fn default-feature-name
       (λ [feature]
          (.getAttribute feature "NAME10")))
+    
+    (debug
+     (with-meta
+       (λ [feature]
+          (.getAttribute feature "NAME10"))
+       {:doc "harro"})
+     (class (with-meta
+              (λ [feature]
+                 (.getAttribute feature "NAME10"))
+              {:doc "harro"})))
     
     (def default-feature-geometry
       (λ [feature]
@@ -89,7 +182,7 @@
                ["-n" "--name" "Extract a name from a feature"
                 :name :feature-name
                 :parse-fn eval-string
-                :default default-feature-name]
+                :default (with-meta default-feature-name {:doc "harro"})]
                ["-g" "--geometry" "Extract a geometry from a feature"
                 :name :feature-geometry
                 :parse-fn eval-string
@@ -103,6 +196,24 @@
                        feature-filter
                        files))
     
+    (let [[parameters
+           files
+           usage]
+          (cli *command-line-args*
+               ["-n" "--name" "Extract a name from a feature"
+                :name :feature-name
+                :parse-fn eval-string
+                :default default-feature-name]
+               ["-g" "--geometry" "Extract a geometry from a feature"
+                :name :feature-geometry
+                :parse-fn eval-string
+                :default default-feature-geometry]
+               ["-f" "--filter" "Filter features"
+                :name :feature-filter
+                :parse-fn eval-string
+                :default default-feature-filter])]
+      (if (empty? files)
+        (println usage)))
   #+END_SRC
 
   Tool has parameters for name-extraction, geometry-extraction and
