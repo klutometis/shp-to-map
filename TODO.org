@@ -20,10 +20,17 @@
 
   #+BEGIN_SRC clojure :tangle shp-to-map.clj :shebang #!/usr/bin/env clj
     (use 'add-classpath.core)
-    (use 'debug.core)
     
     (add-classpath "lib/gt-shapefile-8.0-M3.jar")
     (add-classpath "lib/jts-1.12.jar")
+    (add-classpath "lib/tools.cli-0.2.2-SNAPSHOT.jar")
+    (add-classpath "lib/cadr-1.0.0-SNAPSHOT-standalone.jar")
+    (add-classpath "lib/lambda-1.0.1-SNAPSHOT.jar")
+    
+    (use 'debug.core)
+    (use 'clojure.tools.cli)
+    (use 'cadr.core)
+    (use 'lambda.core)
     
     (import 'java.net.URLClassLoader)
     (import 'java.net.URL)
@@ -32,40 +39,78 @@
     (import 'org.geotools.data.shapefile.ShapefileDataStore)
     (import 'com.vividsolutions.jts.io.WKBWriter)
     
-    (let [files '("places/tl_2010_01_place10.shp"
-                  "places/tl_2010_02_place10.shp")
-          writer (new WKBWriter)]
-      (doseq [[name geometries]
-              (reduce
-               (fn [name->geometries file]
-                 (reduce
-                  (fn [name->geometries feature]
-                    ;; Extracting the geometry should be a
-                    ;; command-line parameter, shouldn't it?
-                    (let [hex (WKBWriter/toHex (.write writer (.getDefaultGeometry feature)))]
-                      ;; Extracting the name should be a command-line
-                      ;; parameter, shouldn't it?
-                      (let [name (.getAttribute feature "NAME10")]
-                        (assoc name->geometries
-                          name
-                          (cons (subs hex 0 10)
-                                (get name->geometries
-                                     name
-                                     '()))))))
-                  name->geometries
-                  (.toArray
-                   (.getFeatures
-                    (.getFeatureSource
-                     (new ShapefileDataStore
-                          (.toURL (.toURI (new File file)))))))))
-               {}
-               files)]
-        (printf "%s\t%s\n" name (apply str (interpose "|" geometries)))))
+    (def eval-string
+      (λ [string]
+         ((comp eval read-string) string)))
+    
+    (def default-feature-name
+      (λ [feature]
+         (.getAttribute feature "NAME10")))
+    
+    (def default-feature-geometry
+      (λ [feature]
+         (.getDefaultGeometry feature)))
+    
+    (def default-feature-filter (constantly true))
+    
+    (let [writer (new WKBWriter)]
+      (def print-shape-map
+        (λ [feature-name feature-geometry feature-filter files]
+           (doseq [[name geometries]
+                   (reduce
+                    (λ [name->geometries file]
+                       (reduce
+                        (λ [name->geometries feature]
+                           (let [hex (WKBWriter/toHex
+                                      (.write writer
+                                              (feature-geometry feature)))
+                                 name (feature-name feature)]
+                             (assoc name->geometries
+                               name
+                               (cons hex
+                                     (get name->geometries
+                                          name
+                                          '())))))
+                        name->geometries
+                        (.toArray
+                         (.getFeatures
+                          (.getFeatureSource
+                           (new ShapefileDataStore
+                                (.toURL (.toURI (new File file)))))))))
+                    {}
+                    files)]
+             (printf "%s\t%s\n" name (apply str (interpose "|" geometries)))))))
+    
+    (let [[{feature-name :feature-name
+            feature-geometry :feature-geometry
+            feature-filter :feature-filter}
+           files]
+          (cli *command-line-args*
+               ["-n" "--name" "Extract a name from a feature"
+                :name :feature-name
+                :parse-fn eval-string
+                :default default-feature-name]
+               ["-g" "--geometry" "Extract a geometry from a feature"
+                :name :feature-geometry
+                :parse-fn eval-string
+                :default default-feature-geometry]
+               ["-f" "--filter" "Filter features"
+                :name :feature-filter
+                :parse-fn eval-string
+                :default default-feature-filter])]
+      (print-shape-map feature-name
+                       feature-geometry
+                       feature-filter
+                       files))
     
   #+END_SRC
 
   Tool has parameters for name-extraction, geometry-extraction and
   filtering; which are clojure functions against the feature.
+
+  =shp2map= in:
+  https://github.com/Factual/data-projects/tree/master/projects; link
+  the executable .jar in wiki? maven? proof of concept: zip codes.
 * TODO Test against Tiger data.
   [[http://www.itl.nist.gov/fipspubs/fip5-2.htm][FIPS codes for states]].
 
