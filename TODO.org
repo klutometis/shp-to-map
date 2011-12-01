@@ -1,5 +1,6 @@
 # -*- org -*-
-* TODO Annotated function
+* DONE Annotated function
+  CLOSED: [2011-12-01 Thu 11:51]
   See [[http://stackoverflow.com/questions/5306015/equivilent-of-javas-tostring-for-clojure-functions][toString() for IFn]].
 
   #+BEGIN_SRC clojure :tangle annotated-function.clj :shebang #!/usr/bin/env clj
@@ -58,7 +59,10 @@
      (plusishish 2)
      )
   #+END_SRC
-* TODO Switch to Clojure-friendly geotools.
+* CANCELED Switch to Clojure-friendly geotools.
+  CLOSED: [2011-12-01 Thu 11:51]
+  - CLOSING NOTE [2011-12-01 Thu 11:51] \\
+    Should either implement ISeq for features or move to this.
   https://github.com/iwillig/geoscript-clj
 * DONE Tool to convert shapefiles to maps.
   CLOSED: [2011-11-30 Wed 12:43]
@@ -252,7 +256,8 @@
   =shp2map= in:
   https://github.com/Factual/data-projects/tree/master/projects; link
   the executable .jar in wiki? maven? proof of concept: zip codes.
-* TODO Test against Tiger data.
+* DONE Test against Tiger data.
+  CLOSED: [2011-12-01 Thu 11:51]
   [[http://www.itl.nist.gov/fipspubs/fip5-2.htm][FIPS codes for states]].
 
   #+BEGIN_SRC java :tangle tiger.bsh :shebang #!/usr/bin/env bsh
