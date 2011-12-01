@@ -44,12 +44,14 @@ function itself."
                                   (.write writer
                                           (feature-geometry feature)))
                              name (feature-name feature)]
-                         (assoc name->geometries
-                           name
-                           (cons hex
-                                 (get name->geometries
-                                      name
-                                      '())))))
+                         (if (feature-filter feature)
+                           (assoc name->geometries
+                             name
+                             (cons hex
+                                   (get name->geometries
+                                        name
+                                        '())))
+                           name->geometries)))
                     name->geometries
                     (.toArray
                      (.getFeatures
