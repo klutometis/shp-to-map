@@ -134,8 +134,6 @@
     (def-monadic default-feature-filter
       (constantly true))
     
-    ;;; This may even be prohibitive; why can't we iterate over
-    ;;; getFeatures?
     (def features
       (λ [shapefile]
          (.features
@@ -144,10 +142,14 @@
             (new ShapefileDataStore
                  (.toURL (.toURI (new File shapefile)))))))))
     
-    ;; (def reduce-features
-    ;;   (λ [f val features]
-    ;;      (loop [val val]
-    ;;        (let [feature (.hasNext)]))))
+    (def reduce-features
+      (λ [f val features]
+         (with-open [features features]
+           (loop [val val]
+             (if (.hasNext features)
+               (let [feature (.next features)]
+                 (recur (f val feature)))
+               val)))))
     
     (let [writer (new WKBWriter)]
       (def geometry->hex
@@ -159,19 +161,18 @@
          (doseq [[name geometries]
                  (reduce
                   (λ [name->geometries file]
-                     (let [features (features file)]
-                       (loop [name->geometries name->geometries]
-                         (if (.hasNext features)
-                           (let [feature (.next features)]
-                             (let [hex (geometry->hex (feature-geometry feature))
-                                   name (feature-name feature)]
-                               (recur (assoc name->geometries
+                     (reduce-features
+                      (λ [name->geometries feature]
+                         (let [name (feature-name feature)
+                               hex (geometry->hex (feature-geometry feature))]
+                           (assoc name->geometries
+                             name
+                             (cons hex
+                                   (get name->geometries
                                         name
-                                        (cons hex
-                                              (get name->geometries
-                                                   name
-                                                   '()))))))
-                           name->geometries))))
+                                        '())))))
+                      name->geometries
+                      (features file)))
                   {}
                   files)]
            (printf "%s\t%s\n" name (apply str (interpose "|" geometries))))))
