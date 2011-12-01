@@ -32,41 +32,87 @@ function itself."
 (def-monadic default-feature-filter
   (constantly true))
 
+;;; Really should just make an ISeq out of features, so that we can
+;;; reduce on it; etc.
+(def features
+  (λ [shapefile]
+     (.features
+      (.getFeatures
+       (.getFeatureSource
+        (new ShapefileDataStore
+             (.toURL (.toURI (new File shapefile)))))))))
+
+(def reduce-features
+  (λ [f val features]
+     (with-open [features features]
+       (loop [val val]
+         (if (.hasNext features)
+           (let [feature (.next features)]
+             (recur (f val feature)))
+           val)))))
+
+(def do-features
+  (λ [f features]
+     (with-open [features features]
+       (loop []
+         (if (.hasNext features)
+           (let [feature (.next features)]
+             (f feature)
+             (recur)))))))
+
 (let [writer (new WKBWriter)]
-  (def print-shape-map
-    (λ [feature-name feature-geometry feature-filter files]
-       (doseq [[name geometries]
-               (reduce
-                (λ [name->geometries file]
-                   (reduce
-                    (λ [name->geometries feature]
-                       (let [hex (WKBWriter/toHex
-                                  (.write writer
-                                          (feature-geometry feature)))
-                             name (feature-name feature)]
-                         (if (feature-filter feature)
-                           (assoc name->geometries
-                             name
-                             (cons hex
-                                   (get name->geometries
-                                        name
-                                        '())))
-                           name->geometries)))
-                    name->geometries
-                    (.toArray
-                     (.getFeatures
-                      (.getFeatureSource
-                       (new ShapefileDataStore
-                            (.toURL (.toURI (new File file)))))))))
-                {}
-                files)]
-         (printf "%s\t%s\n" name (apply str (interpose "|" geometries)))))))
+  (def geometry->hex
+    (λ [geometry]
+       (WKBWriter/toHex (.write writer geometry)))))
+
+(def print-geometries
+  (λ [name hexen]
+     (printf "%s\t%s\n" name (apply str (interpose "|" hexen)))))
+
+(def print-geometry
+  (λ [name hex]
+     (printf "%s\t%s\n" name hex)))
+
+(def print-geometry-map
+  (λ [feature-name feature-geometry feature-filter files]
+     (doseq [file files]
+       (do-features
+        (λ [feature]
+           (if (feature-filter feature)
+             (let [name (feature-name feature)
+                   hex (geometry->hex (feature-geometry feature))]
+               (print-geometry name hex))))
+        (features file)))))
+
+(def print-bucketed-geometry-map
+  (λ [feature-name feature-geometry feature-filter files]
+     (doseq [[name geometries]
+             (reduce
+              (λ [name->geometries file]
+                 (reduce-features
+                  (λ [name->geometries feature]
+                     (if (feature-filter feature)
+                       (let [name (feature-name feature)
+                             hex (geometry->hex (feature-geometry feature))]
+                         (assoc name->geometries
+                           name
+                           (cons hex
+                                 (get name->geometries
+                                      name
+                                      '()))))
+                       name->geometries))
+                  name->geometries
+                  (features file)))
+              {}
+              files)]
+       (printf "%s\t%s\n" name (apply str (interpose "|" geometries))))))
 
 (def -main
   (λ [& args]
      (let [[{feature-name :feature-name
              feature-geometry :feature-geometry
-             feature-filter :feature-filter}
+             feature-filter :feature-filter
+             bucket-duplicates :bucket-duplicates}
             files
             usage]
            (cli args
@@ -81,10 +127,19 @@ function itself."
                 ["-f" "--filter" "Filter features"
                  :name :feature-filter
                  :parse-fn eval-string
-                 :default default-feature-filter])]
+                 :default default-feature-filter]
+                ["-b" "--bucket" "Bucket duplicates"
+                 :name :bucket-duplicates
+                 :flag true
+                 :default true])]
        (if (empty? files)
          (println usage)
-         (print-shape-map feature-name
-                          feature-geometry
-                          feature-filter
-                          files)))))
+         (if bucket-duplicates
+           (print-bucketed-geometry-map feature-name
+                                        feature-geometry
+                                        feature-filter
+                                        files)
+           (print-geometry-map feature-name
+                               feature-geometry
+                               feature-filter
+                               files))))))
