@@ -101,6 +101,7 @@
     (import 'clojure.lang.AFunction)
     (import 'clojure.lang.IFn)
     (import 'org.geotools.data.shapefile.ShapefileDataStore)
+    (import 'org.geotools.data.collection.CollectionFeatureSource)
     (import 'com.vividsolutions.jts.io.WKBWriter)
     
     ;;; This doesn't work, since it doesn't redefine it in clojure.core or
@@ -133,33 +134,47 @@
     (def-monadic default-feature-filter
       (constantly true))
     
+    ;;; This may even be prohibitive; why can't we iterate over
+    ;;; getFeatures?
+    (def features
+      (λ [shapefile]
+         (.features
+          (.getFeatures
+           (.getFeatureSource
+            (new ShapefileDataStore
+                 (.toURL (.toURI (new File shapefile)))))))))
+    
+    ;; (def reduce-features
+    ;;   (λ [f val features]
+    ;;      (loop [val val]
+    ;;        (let [feature (.hasNext)]))))
+    
     (let [writer (new WKBWriter)]
-      (def print-shape-map
-        (λ [feature-name feature-geometry feature-filter files]
-           (doseq [[name geometries]
-                   (reduce
-                    (λ [name->geometries file]
-                       (reduce
-                        (λ [name->geometries feature]
-                           (let [hex (WKBWriter/toHex
-                                      (.write writer
-                                              (feature-geometry feature)))
-                                 name (feature-name feature)]
-                             (assoc name->geometries
-                               name
-                               (cons hex
-                                     (get name->geometries
-                                          name
-                                          '())))))
-                        name->geometries
-                        (.toArray
-                         (.getFeatures
-                          (.getFeatureSource
-                           (new ShapefileDataStore
-                                (.toURL (.toURI (new File file)))))))))
-                    {}
-                    files)]
-             (printf "%s\t%s\n" name (apply str (interpose "|" geometries)))))))
+      (def geometry->hex
+        (λ [geometry]
+           (WKBWriter/toHex (.write writer geometry)))))
+    
+    (def print-geometries
+      (λ [feature-name feature-geometry feature-filter files]
+         (doseq [[name geometries]
+                 (reduce
+                  (λ [name->geometries file]
+                     (let [features (features file)]
+                       (loop [name->geometries name->geometries]
+                         (if (.hasNext features)
+                           (let [feature (.next features)]
+                             (let [hex (geometry->hex (feature-geometry feature))
+                                   name (feature-name feature)]
+                               (recur (assoc name->geometries
+                                        name
+                                        (cons hex
+                                              (get name->geometries
+                                                   name
+                                                   '()))))))
+                           name->geometries))))
+                  {}
+                  files)]
+           (printf "%s\t%s\n" name (apply str (interpose "|" geometries))))))
     
     (let [[{feature-name :feature-name
             feature-geometry :feature-geometry
@@ -178,13 +193,16 @@
                ["-f" "--filter" "Filter features"
                 :name :feature-filter
                 :parse-fn eval-string
-                :default default-feature-filter])]
+                :default default-feature-filter]
+               ["-b" "--bucket" "Bucket duplicates"
+                :flag true
+                :default true])]
       (if (empty? files)
         (println usage)
-        (print-shape-map feature-name
-                         feature-geometry
-                         feature-filter
-                         files)))
+        (print-geometries feature-name
+                          feature-geometry
+                          feature-filter
+                          files)))
     
   #+END_SRC
 
