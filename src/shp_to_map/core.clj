@@ -2,28 +2,35 @@
   (:use [debug.core :only (debug)]
         [lambda.core :only (λ)]
         [clojure.tools.cli :only (cli)])
+  (:import (java.net URLClassLoader URL)
+           (java.io File)
+           (org.geotools.data.shapefile ShapefileDataStore)
+           (com.vividsolutions.jts.io WKBWriter)
+           (clojure.lang IFn))
   (:gen-class))
-
-(import 'java.net.URLClassLoader)
-(import 'java.net.URL)
-(import 'java.io.File)
-
-(import 'org.geotools.data.shapefile.ShapefileDataStore)
-(import 'com.vividsolutions.jts.io.WKBWriter)
 
 (def eval-string
   (λ [string]
      ((comp eval read-string) string)))
 
-(def default-feature-name
+(defmacro def-monadic [name function]
+  "Implements a monadic function whose toString is the source of the
+function itself."
+  `(def ~name
+     (reify IFn
+       (toString [this] (str (quote ~function)))
+       (invoke [this arg1#] (~function arg1#)))))
+
+(def-monadic default-feature-name
   (λ [feature]
      (.getAttribute feature "NAME10")))
 
-(def default-feature-geometry
+(def-monadic default-feature-geometry
   (λ [feature]
      (.getDefaultGeometry feature)))
 
-(def default-feature-filter (constantly true))
+(def-monadic default-feature-filter
+  (constantly true))
 
 (let [writer (new WKBWriter)]
   (def print-shape-map
@@ -64,7 +71,7 @@
                 ["-n" "--name" "Extract a name from a feature"
                  :name :feature-name
                  :parse-fn eval-string
-                 :default default-feature-name]
+                 :default (with-meta default-feature-name {:doc "harro"})]
                 ["-g" "--geometry" "Extract a geometry from a feature"
                  :name :feature-geometry
                  :parse-fn eval-string

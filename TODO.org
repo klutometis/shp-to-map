@@ -103,48 +103,35 @@
     (import 'org.geotools.data.shapefile.ShapefileDataStore)
     (import 'com.vividsolutions.jts.io.WKBWriter)
     
-    ;;; This doesn't work, since it doesn't redefine it for clojure.core.
+    ;;; This doesn't work, since it doesn't redefine it in clojure.core or
+    ;;; tools.cli. Can we intern it elsewhere?
+    ;;; <http://stackoverflow.com/a/4599444>
     (defmethod print-method AFunction
       [f writer]
       (print-simple (:doc (meta f)) writer))
     
-    (def eval-string
-      (λ [string]
-         ((comp eval read-string) string)))
-    
-    (defmacro source-fn [name function]
+    (defmacro def-monadic [name function]
+      "Implements a monadic function whose toString is the source of the
+    function itself."
       `(def ~name
          (reify IFn
            (toString [this] (str (quote ~function)))
            (invoke [this arg1#] (~function arg1#)))))
     
-    ;; (def default-feature-name
-    ;;   (reify clojure.lang.IFn
-    ;;     (toString [this] "euohn toeuthnueothnueohn teouthn oeuhn toeuoeuthn")
-    ;;     (invoke [this feature]
-    ;;       ((λ [feature]
-    ;;           (.getAttribute feature "NAME10"))
-    ;;        feature))))
+    (def eval-string
+      (λ [string]
+         ((comp eval read-string) string)))
     
-    (source-fn default-feature-name
+    (def-monadic default-feature-name
       (λ [feature]
          (.getAttribute feature "NAME10")))
     
-    (debug
-     (with-meta
-       (λ [feature]
-          (.getAttribute feature "NAME10"))
-       {:doc "harro"})
-     (class (with-meta
-              (λ [feature]
-                 (.getAttribute feature "NAME10"))
-              {:doc "harro"})))
-    
-    (def default-feature-geometry
+    (def-monadic default-feature-geometry
       (λ [feature]
          (.getDefaultGeometry feature)))
     
-    (def default-feature-filter (constantly true))
+    (def-monadic default-feature-filter
+      (constantly true))
     
     (let [writer (new WKBWriter)]
       (def print-shape-map
@@ -177,7 +164,8 @@
     (let [[{feature-name :feature-name
             feature-geometry :feature-geometry
             feature-filter :feature-filter}
-           files]
+           files
+           usage]
           (cli *command-line-args*
                ["-n" "--name" "Extract a name from a feature"
                 :name :feature-name
@@ -191,29 +179,13 @@
                 :name :feature-filter
                 :parse-fn eval-string
                 :default default-feature-filter])]
-      (print-shape-map feature-name
-                       feature-geometry
-                       feature-filter
-                       files))
-    
-    (let [[parameters
-           files
-           usage]
-          (cli *command-line-args*
-               ["-n" "--name" "Extract a name from a feature"
-                :name :feature-name
-                :parse-fn eval-string
-                :default default-feature-name]
-               ["-g" "--geometry" "Extract a geometry from a feature"
-                :name :feature-geometry
-                :parse-fn eval-string
-                :default default-feature-geometry]
-               ["-f" "--filter" "Filter features"
-                :name :feature-filter
-                :parse-fn eval-string
-                :default default-feature-filter])]
       (if (empty? files)
-        (println usage)))
+        (println usage)
+        (print-shape-map feature-name
+                         feature-geometry
+                         feature-filter
+                         files)))
+    
   #+END_SRC
 
   Tool has parameters for name-extraction, geometry-extraction and
